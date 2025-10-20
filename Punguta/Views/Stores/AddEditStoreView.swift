@@ -58,10 +58,8 @@ struct AddEditStoreView: View {
                         }
                     }
                     .onChange(of: selectedType) { oldValue, newValue in
-                        if !isEditing {
-                            // Update default categories when type changes (only for new stores)
-                            updateDefaultCategories(for: newValue)
-                        }
+                        // Update default categories when type changes
+                        updateDefaultCategories(for: newValue)
                     }
                 }
                 
@@ -124,7 +122,7 @@ struct AddEditStoreView: View {
                     }
                 } header: {
                     HStack {
-                        Text("Category Order")
+                        Text("Categories")
                     }
                 }
             }

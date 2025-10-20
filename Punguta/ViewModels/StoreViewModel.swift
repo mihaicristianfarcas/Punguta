@@ -12,8 +12,6 @@ import SwiftUI
 
 @MainActor
 class StoreViewModel: ObservableObject {
-    let objectWillChange = ObservableObjectPublisher()
-    
     @Published var stores: [Store] = []
     @Published var categories: [Category] = Category.defaultCategories
     
