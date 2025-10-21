@@ -116,6 +116,7 @@ private struct CategoryList: View {
             }
         }
         .listStyle(.plain)
+        .listRowBackground(Color.clear)
         .frame(height: CGFloat(selectedCategories.count) * 56)
         .scrollDisabled(true)
         .padding(.top, 4)

@@ -12,35 +12,24 @@ import MapKit
 struct StoreDetailView: View {
     let store: Store
     let viewModel: StoreViewModel
-    @Environment(\.dismiss) private var dismiss
     
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Store Header Card
-                    StoreHeaderCard(store: store)
-                    
-                    // Location Section
-                    LocationSection(store: store)
-                    
-                    // Categories Section
-                    CategoriesSection(store: store, viewModel: viewModel)
-                }
-                .padding(.vertical, 20)
+        ScrollView {
+            VStack(spacing: 24) {
+                // Store Header Card
+                StoreHeaderCard(store: store)
+                
+                // Location Section
+                LocationSection(store: store)
+                
+                // Categories Section
+                CategoriesSection(store: store, viewModel: viewModel)
             }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle(store.name)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                }
-            }
+            .padding(.vertical, 20)
         }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle(store.name)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

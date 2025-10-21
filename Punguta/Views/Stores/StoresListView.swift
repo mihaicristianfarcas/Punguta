@@ -11,9 +11,7 @@ import MapKit
 struct StoresListView: View {
     @StateObject private var viewModel = StoreViewModel()
     @State private var showingAddStore = false
-    @State private var selectedStore: Store?
     @State private var storeToEdit: Store?
-    @State private var showingStoreDetail = false
     @State private var storeToDelete: Store?
     @State private var showingDeleteConfirmation = false
     
@@ -25,16 +23,19 @@ struct StoresListView: View {
                 
                 List {
                     ForEach(viewModel.stores) { store in
-                        StoreRowView(store: store, viewModel: viewModel)
-                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                selectedStore = store
-                                showingStoreDetail = true
-                            }
-                            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                        NavigationLink(destination: StoreDetailView(store: store, viewModel: viewModel)) {
+                            StoreRowView(store: store, viewModel: viewModel)
+                        }
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color(.systemBackground))
+                                .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+                        )
+                        .buttonStyle(.plain)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                        .swipeActions(edge: .leading, allowsFullSwipe: false) {
                                 Button {
                                     storeToEdit = store
                                 } label: {
@@ -62,11 +63,6 @@ struct StoresListView: View {
             }
             .sheet(item: $storeToEdit) { store in
                 AddEditStoreView(viewModel: viewModel, storeToEdit: store)
-            }
-            .sheet(isPresented: $showingStoreDetail) {
-                if let store = selectedStore {
-                    StoreDetailView(store: store, viewModel: viewModel)
-                }
             }
             .alert(
                 "Delete Store",
@@ -181,20 +177,11 @@ struct StoreRowView: View {
                     .foregroundStyle(.secondary)
                     .padding(.top, 4)
                 }
-                
+
                 Spacer()
-                
-                Image(systemName: "hand.tap")
-                    .foregroundStyle(.tertiary)
-                    .font(.system(size: 18, weight: .semibold))
             }
             .padding(16)
         }
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-        )
     }
     
     private var storeIcon: String {
