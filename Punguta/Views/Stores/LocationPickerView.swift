@@ -16,7 +16,6 @@ struct LocationPickerView: View {
     @State private var mapPosition: MapCameraPosition
     @State private var searchText = ""
     @State private var searchResults: [MKMapItem] = []
-    @State private var isSearching = false
     
     init(selectedCoordinate: Binding<CLLocationCoordinate2D?>, address: Binding<String>) {
         self._selectedCoordinate = selectedCoordinate
@@ -40,121 +39,88 @@ struct LocationPickerView: View {
                     }
                 }
                 .ignoresSafeArea()
-                .onTapGesture { coordinate in
-                    // Note: Map tap to set location requires additional implementation
-                }
                 
-                // Search overlay
-                VStack {
-                    // Search bar
-                    HStack(spacing: 12) {
-                        HStack {
-                            Image(systemName: "magnifyingglass")
-                                .foregroundStyle(.secondary)
-                            
-                            TextField("Search for a place", text: $searchText)
-                                .textFieldStyle(.plain)
-                                .onSubmit {
-                                    searchLocation()
-                                }
-                            
-                            if !searchText.isEmpty {
-                                Button(action: { searchText = "" }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundStyle(.secondary)
-                                }
+                // Search results overlay
+                VStack(spacing: 0) {
+                    if !searchResults.isEmpty {
+                        VStack(spacing: 0) {
+                            // Results header
+                            HStack {
+                                Image(systemName: "magnifyingglass")
+                                    .foregroundStyle(.secondary)
+                                    .font(.subheadline)
+                                
+                                Text("\(searchResults.count) \(searchResults.count == 1 ? "result" : "results")")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(.secondary)
+                                
+                                Spacer()
                             }
-                        }
-                        .padding(12)
-                        .background(Color(.systemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
-                        
-                        Button(action: { dismiss() }) {
-                            Text("Cancel")
-                                .fontWeight(.medium)
-                        }
-                    }
-                    .padding()
-                    
-                    // Search results
-                    if isSearching && !searchResults.isEmpty {
-                        ScrollView {
-                            VStack(spacing: 0) {
-                                ForEach(searchResults, id: \.self) { item in
-                                    Button(action: { selectLocation(item) }) {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(item.name ?? "Unknown")
-                                                .font(.headline)
-                                                .foregroundStyle(.primary)
-                                            
-                                            if let address = item.placemark.title {
-                                                Text(address)
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-                                                    .lineLimit(2)
-                                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 12)
+                            .background(Color(.systemGroupedBackground))
+                            
+                            Divider()
+                            
+                            // Results list
+                            ScrollView {
+                                LazyVStack(spacing: 10) {
+                                    ForEach(searchResults, id: \.self) { item in
+                                        LocationResultRow(item: item) {
+                                            selectLocation(item)
                                         }
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .padding()
-                                        .background(Color(.systemBackground))
                                     }
-                                    
-                                    Divider()
                                 }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
                             }
+                            .background(Color(.systemGroupedBackground))
                         }
-                        .frame(maxHeight: 300)
-                        .background(Color(.systemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
-                        .padding(.horizontal)
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                        .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: 8)
+                        .padding(.horizontal, 16)
+                        .frame(maxHeight: 450)
+                        .transition(.move(edge: .top).combined(with: .opacity))
                     }
                     
                     Spacer()
-                    
-                    // Confirm button
-                    if selectedCoordinate != nil {
-                        VStack(spacing: 12) {
-                            if !address.isEmpty {
-                                Text(address)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                    .padding(.horizontal)
-                                    .multilineTextAlignment(.center)
-                            }
-                            
-                            Button(action: { dismiss() }) {
-                                HStack {
-                                    Image(systemName: "checkmark.circle.fill")
-                                    Text("Confirm Location")
-                                        .fontWeight(.semibold)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.blue.gradient)
-                                .foregroundStyle(.white)
-                                .clipShape(RoundedRectangle(cornerRadius: 16))
-                                .shadow(color: .blue.opacity(0.3), radius: 8, x: 0, y: 4)
-                            }
-                        }
-                        .padding()
-                        .background(Color(.systemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 20))
-                        .shadow(color: .black.opacity(0.1), radius: 12, x: 0, y: -2)
-                        .padding()
-                    }
+                }
+                .padding(.top, 70)
+            }
+            .searchable(text: $searchText, prompt: "Search for a place")
+            .onChange(of: searchText) { oldValue, newValue in
+                if !newValue.isEmpty {
+                    searchLocation()
+                } else {
+                    searchResults = []
                 }
             }
-            .navigationBarHidden(true)
+            .navigationTitle("Select Location")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .disabled(selectedCoordinate == nil)
+                    .fontWeight(.semibold)
+                }
+            }
         }
     }
     
     private func searchLocation() {
-        isSearching = true
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = searchText
         
+        // Use current location or selected coordinate as search region
         if let coordinate = selectedCoordinate {
             request.region = MKCoordinateRegion(
                 center: coordinate,
@@ -170,23 +136,115 @@ struct LocationPickerView: View {
                 return
             }
             
-            searchResults = response.mapItems
+            withAnimation(.easeInOut(duration: 0.2)) {
+                searchResults = response.mapItems
+            }
         }
     }
     
     private func selectLocation(_ item: MKMapItem) {
-        selectedCoordinate = item.placemark.coordinate
-        address = [item.name, item.placemark.title]
-            .compactMap { $0 }
-            .joined(separator: ", ")
+        // Use location instead of deprecated placemark for coordinate
+        let location = item.location
+        selectedCoordinate = location.coordinate
         
-        mapPosition = .region(MKCoordinateRegion(
-            center: item.placemark.coordinate,
-            span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-        ))
+        // Use address property (iOS 26+) or fallback to placemark
+        if #available(iOS 26.0, *) {
+            if let mkAddress = item.address {
+                address = mkAddress.fullAddress
+            }
+        } else {
+            if let placemarkTitle = item.placemark.title {
+                address = placemarkTitle
+            }
+        }
         
+        withAnimation {
+            mapPosition = .region(MKCoordinateRegion(
+                center: location.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+            ))
+        }
+        
+        // Clear search
         searchText = ""
-        isSearching = false
-        searchResults = []
+        withAnimation {
+            searchResults = []
+        }
     }
+}
+
+// MARK: - Location Result Row
+private struct LocationResultRow: View {
+    let item: MKMapItem
+    let onSelect: () -> Void
+    
+    private var addressText: String {
+        if #available(iOS 26.0, *) {
+            if let mkAddress = item.address {
+                return mkAddress.fullAddress
+            }
+            return "No address available"
+        } else {
+            return item.placemark.title ?? "No address available"
+        }
+    }
+    
+    var body: some View {
+        Button(action: onSelect) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 14) {
+                    // Location icon with gradient
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.red, Color.red.opacity(0.8)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 56, height: 56)
+                        
+                        Image(systemName: "mappin.and.ellipse")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+                    
+                    // Location details
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(item.name ?? "Unknown Location")
+                            .font(.body)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        
+                        Text(addressText)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+                    
+                    Spacer(minLength: 8)
+                }
+                .padding(16)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(.secondarySystemGroupedBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(Color.gray.opacity(0.1), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Preview
+#Preview {
+    LocationPickerView(
+        selectedCoordinate: .constant(nil),
+        address: .constant("")
+    )
 }

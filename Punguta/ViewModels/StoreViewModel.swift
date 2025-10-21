@@ -37,6 +37,7 @@ class StoreViewModel: ObservableObject {
         if let index = stores.firstIndex(where: { $0.id == store.id }) {
             stores[index] = store
             saveStores()
+            objectWillChange.send() // Force UI update
         }
     }
     
@@ -48,6 +49,14 @@ class StoreViewModel: ObservableObject {
     func deleteStores(at offsets: IndexSet) {
         stores.remove(atOffsets: offsets)
         saveStores()
+    }
+    
+    func updateStoreCategoryOrder(storeId: UUID, newOrder: [UUID]) {
+        if let index = stores.firstIndex(where: { $0.id == storeId }) {
+            stores[index].categoryOrder = newOrder
+            saveStores()
+            objectWillChange.send() // Force UI update
+        }
     }
     
     // MARK: - Category Helpers
@@ -90,7 +99,7 @@ class StoreViewModel: ObservableObject {
         
         stores = [
             Store.create(name: "Auchan", type: .grocery, location: sampleLocation1, from: categories),
-            Store.create(name: "Mega Image", type: .convenience, location: sampleLocation2, from: categories)
+            Store.create(name: "Mega Image", type: .hypermarket, location: sampleLocation2, from: categories)
         ]
     }
 }

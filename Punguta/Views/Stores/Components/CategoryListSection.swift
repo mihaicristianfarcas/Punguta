@@ -35,7 +35,7 @@ struct CategoryListSection: View {
                 EmptyCategoryState()
             } else {
                 CategoryList(
-                    selectedCategories: selectedCategories,
+                    selectedCategories: $selectedCategories,
                     categories: categories,
                     onMove: onMove
                 )
@@ -97,27 +97,29 @@ private struct EmptyCategoryState: View {
 
 /// List of selected categories with drag-to-reorder
 private struct CategoryList: View {
-    let selectedCategories: [UUID]
+    @Binding var selectedCategories: [UUID]
     let categories: [Category]
     let onMove: (IndexSet, Int) -> Void
     
     var body: some View {
-            List {
-                ForEach(Array(selectedCategories.enumerated()), id: \.element) { index, categoryId in
-                    if let category = categories.first(where: { $0.id == categoryId }) {
-                        CategoryRowView(category: category)
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-                    }
+        List {
+            ForEach(Array(selectedCategories.enumerated()), id: \.element) { index, categoryId in
+                if let category = categories.first(where: { $0.id == categoryId }) {
+                    CategoryRowView(category: category)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                 }
-                .onMove(perform: onMove)
             }
-            .listStyle(.plain)
-            .frame(height: CGFloat(selectedCategories.count) * 56)
-            .scrollDisabled(true)
-            .padding(.top, 4)
-            .padding(.horizontal, 25)
+            .onMove { source, destination in
+                onMove(source, destination)
+            }
+        }
+        .listStyle(.plain)
+        .frame(height: CGFloat(selectedCategories.count) * 56)
+        .scrollDisabled(true)
+        .padding(.top, 4)
+        .padding(.horizontal, 25)
     }
 }
 

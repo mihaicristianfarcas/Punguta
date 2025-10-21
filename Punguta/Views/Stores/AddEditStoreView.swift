@@ -123,7 +123,9 @@ struct AddEditStoreView: View {
                 )
             }
             .onAppear {
-                updateDefaultCategories(for: selectedType)
+                if (!isEditing) {
+                    updateDefaultCategories(for: selectedType)
+                }
             }
         }
     }

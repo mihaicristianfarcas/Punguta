@@ -72,7 +72,7 @@ extension StoreType {
         case .grocery: return "cart.fill"
         case .pharmacy: return "cross.case.fill"
         case .hardware: return "hammer.fill"
-        case .convenience: return "storefront.fill"
+        case .hypermarket: return "storefront.fill"
         }
     }
     
@@ -82,7 +82,7 @@ extension StoreType {
         case .grocery: return .green
         case .pharmacy: return .red
         case .hardware: return .orange
-        case .convenience: return .blue
+        case .hypermarket: return .blue
         }
     }
 }

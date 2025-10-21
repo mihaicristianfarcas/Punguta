@@ -12,7 +12,7 @@ enum StoreType: String, Codable, CaseIterable {
     case grocery = "Grocery"
     case pharmacy = "Pharmacy"
     case hardware = "Hardware"
-    case convenience = "Convenience"
+    case hypermarket = "Hypermarket"
     
     /// Returns default category names for this store type
     /// These categories are automatically suggested when creating a new store
@@ -24,7 +24,7 @@ enum StoreType: String, Codable, CaseIterable {
             return ["Personal Care", "Medicine", "Vitamins", "First Aid", "Beauty"]
         case .hardware:
             return ["Tools", "Hardware", "Paint", "Electrical", "Plumbing", "Garden"]
-        case .convenience:
+        case .hypermarket:
             return ["Beverages", "Snacks", "Dairy", "Bakery", "Personal Care"]
         }
     }

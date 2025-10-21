@@ -12,19 +12,34 @@ struct StoresListView: View {
     @StateObject private var viewModel = StoreViewModel()
     @State private var showingAddStore = false
     @State private var selectedStore: Store?
-    @State private var showingEditStore = false
+    @State private var storeToEdit: Store?
+    @State private var showingStoreDetail = false
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                LazyVStack(spacing: 12) {
+            ZStack {
+                Color(.systemGroupedBackground)
+                    .ignoresSafeArea()
+                
+                List {
                     ForEach(viewModel.stores) { store in
                         StoreRowView(store: store, viewModel: viewModel)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 selectedStore = store
+                                showingStoreDetail = true
                             }
-                            .contextMenu {
+                            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                Button {
+                                    storeToEdit = store
+                                } label: {
+                                    Label("Edit", systemImage: "pencil")
+                                }
+                                .tint(.orange)
+                                
                                 Button(role: .destructive) {
                                     withAnimation {
                                         viewModel.deleteStore(store)
@@ -32,31 +47,25 @@ struct StoresListView: View {
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
+                                .tint(.red)
                             }
                     }
                 }
-                .padding(.top, 8)
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
-            .background(Color(.systemGroupedBackground))
             .navigationTitle("My Stores")
-//            .toolbar {
-//                ToolbarItem(placement: .navigationBarTrailing) {
-//                    Button(action: { showingAddStore = true }) {
-//                        HStack(spacing: 4) {
-//                            Image(systemName: "plus.circle.fill")
-//                            Text("Add Store")
-//                                .fontWeight(.semibold)
-//                        }
-//                        .foregroundStyle(.blue)
-//                    }
-//                }
-//            }
             .navigationBarTitleDisplayMode(.large)
             .sheet(isPresented: $showingAddStore) {
                 AddEditStoreView(viewModel: viewModel)
             }
-            .sheet(item: $selectedStore) { store in
+            .sheet(item: $storeToEdit) { store in
                 AddEditStoreView(viewModel: viewModel, storeToEdit: store)
+            }
+            .sheet(isPresented: $showingStoreDetail) {
+                if let store = selectedStore {
+                    StoreDetailView(store: store, viewModel: viewModel)
+                }
             }
             .overlay {
                 if viewModel.stores.isEmpty {
@@ -154,9 +163,9 @@ struct StoreRowView: View {
                 
                 Spacer()
                 
-                Image(systemName: "chevron.right")
+                Image(systemName: "hand.tap")
                     .foregroundStyle(.tertiary)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 18, weight: .semibold))
             }
             .padding(16)
         }
@@ -165,8 +174,6 @@ struct StoreRowView: View {
                 .fill(Color(.systemBackground))
                 .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
         )
-        .padding(.horizontal, 16)
-        .padding(.vertical, 6)
     }
     
     private var storeIcon: String {
@@ -174,7 +181,7 @@ struct StoreRowView: View {
         case .grocery: return "cart.fill"
         case .pharmacy: return "cross.case.fill"
         case .hardware: return "hammer.fill"
-        case .convenience: return "storefront.fill"
+        case .hypermarket: return "storefront.fill"
         }
     }
     
@@ -183,7 +190,7 @@ struct StoreRowView: View {
         case .grocery: return .green
         case .pharmacy: return .red
         case .hardware: return .orange
-        case .convenience: return .blue
+        case .hypermarket: return .blue
         }
     }
     
