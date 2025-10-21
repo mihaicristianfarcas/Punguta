@@ -14,6 +14,8 @@ struct StoresListView: View {
     @State private var selectedStore: Store?
     @State private var storeToEdit: Store?
     @State private var showingStoreDetail = false
+    @State private var storeToDelete: Store?
+    @State private var showingDeleteConfirmation = false
     
     var body: some View {
         NavigationStack {
@@ -40,10 +42,9 @@ struct StoresListView: View {
                                 }
                                 .tint(.orange)
                                 
-                                Button(role: .destructive) {
-                                    withAnimation {
-                                        viewModel.deleteStore(store)
-                                    }
+                                Button {
+                                    storeToDelete = store
+                                    showingDeleteConfirmation = true
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
@@ -66,6 +67,23 @@ struct StoresListView: View {
                 if let store = selectedStore {
                     StoreDetailView(store: store, viewModel: viewModel)
                 }
+            }
+            .alert(
+                "Delete Store",
+                isPresented: $showingDeleteConfirmation,
+                presenting: storeToDelete
+            ) { store in
+                Button("Cancel", role: .cancel) {
+                    storeToDelete = nil
+                }
+                Button("Delete", role: .destructive) {
+                    withAnimation {
+                        viewModel.deleteStore(store)
+                    }
+                    storeToDelete = nil
+                }
+            } message: { store in
+                Text("Are you sure you want to delete '\(store.name)'? This action cannot be undone.")
             }
             .overlay {
                 if viewModel.stores.isEmpty {
@@ -127,17 +145,20 @@ struct StoreRowView: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(store.name)
-                        .font(.title3)
-                        .fontWeight(.medium)
-                        .foregroundStyle(.primary)
-                    
-                    HStack(spacing: 4) {
+                    HStack {
+                        Text(store.name)
+                            .font(.title3)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        
                         Text(store.type.rawValue)
                             .font(.subheadline)
                             .fontWeight(.medium)
                             .foregroundStyle(storeColor)
-                        
+                            .lineLimit(1)
+                    }
+                    HStack(spacing: 4) {
                         if let address = store.location.address {
                             Text("at")
                                 .foregroundStyle(.secondary)
