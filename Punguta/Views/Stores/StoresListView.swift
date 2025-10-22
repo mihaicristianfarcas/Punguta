@@ -171,13 +171,14 @@ struct StoresListView: View {
                                             } label: {
                                                 Label("Delete", systemImage: "trash")
                                             }
+                                            .tint(.red)
                                             
                                             Button {
                                                 storeToEdit = store
                                             } label: {
                                                 Label("Edit", systemImage: "pencil")
                                             }
-                                            .tint(.blue)
+                                            .tint(.orange)
                                         }
                                     }
                                 } header: {
@@ -330,15 +331,6 @@ struct StoresListView: View {
             }
             .padding(AppTheme.Spacing.md)
             .contentShape(Rectangle())
-            .contextMenu {
-                Button(action: onEdit) {
-                    Label("Edit", systemImage: "pencil")
-                }
-                
-                Button(role: .destructive, action: onDelete) {
-                    Label("Delete", systemImage: "trash")
-                }
-            }
         }
     }
 }

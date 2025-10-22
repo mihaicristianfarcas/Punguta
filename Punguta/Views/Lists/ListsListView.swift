@@ -151,13 +151,14 @@ struct ListsView: View {
                                     } label: {
                                         Label("Delete", systemImage: "trash")
                                     }
+                                    .tint(.red)
                                     
                                     Button {
                                         listToEdit = list
                                     } label: {
                                         Label("Edit", systemImage: "pencil")
                                     }
-                                    .tint(.blue)
+                                    .tint(.orange)
                                 }
                             }
                         }
@@ -336,15 +337,6 @@ struct ListsView: View {
             }
             .padding(AppTheme.Spacing.md)
             .contentShape(Rectangle())
-            .contextMenu {
-                Button(action: onEdit) {
-                    Label("Edit", systemImage: "pencil")
-                }
-                
-                Button(role: .destructive, action: onDelete) {
-                    Label("Delete", systemImage: "trash")
-                }
-            }
         }
     }
 }
