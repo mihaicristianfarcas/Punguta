@@ -165,7 +165,7 @@ struct StoresListView: View {
                                             )
                                         }
                                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                            Button(role: .destructive) {
+                                            Button() {
                                                 storeToDelete = store
                                                 showingDeleteConfirmation = true
                                             } label: {

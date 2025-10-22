@@ -211,7 +211,7 @@ private struct ProductRowView: View {
         }
         .contentShape(Rectangle())
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button(role: .destructive, action: onDelete) {
+            Button(action: onDelete) {
                 Label("Delete", systemImage: "trash")
             }
             .tint(.red)

@@ -145,7 +145,7 @@ struct ListsView: View {
                                     )
                                 }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    Button(role: .destructive) {
+                                    Button() {
                                         listToDelete = list
                                         showingDeleteConfirmation = true
                                     } label: {
