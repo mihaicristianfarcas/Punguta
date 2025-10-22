@@ -88,20 +88,11 @@ struct AddEditListView: View {
                     // Empty state or product list
                     if selectedProductIds.isEmpty {
                         // Empty state when no products selected
-                        HStack {
-                            Spacer()
-                            VStack(spacing: AppTheme.Spacing.sm) {
-                                Image(systemName: "cart.badge.plus")
-                                    .font(.largeTitle)
-                                    .foregroundStyle(.secondary)
-                                Text("No products added yet")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
+                        Text("No products added yet")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.vertical, AppTheme.Spacing.lg)
-                            Spacer()
-                        }
-                        .listRowBackground(Color.clear)
                     } else {
                         // List of selected products (swipe to delete)
                         ForEach(selectedProducts) { product in
@@ -115,13 +106,8 @@ struct AddEditListView: View {
                     }
                     
                     // Add Products button
-                    Button(action: { showingProductPicker = true }) {
-                        HStack {
-                            Image(systemName: "plus.circle.fill")
-                                .foregroundStyle(.blue)
-                            Text("Add Products")
-                                .foregroundStyle(.blue)
-                        }
+                    Button("Add Products") {
+                        showingProductPicker = true
                     }
                 } header: {
                     Text("Products (\(selectedProductIds.count))")
@@ -181,27 +167,19 @@ struct AddEditListView: View {
 
 // MARK: - Product Row View
 
-/// Simple row displaying product name, quantity, and checked status
+/// Simple row displaying product name and quantity
 /// Used in the selected products list
 private struct ProductRowView: View {
     let product: Product
     
     var body: some View {
-        HStack(spacing: AppTheme.Spacing.md) {
-            // Checkmark indicator showing product status
-            Image(systemName: product.isChecked ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(product.isChecked ? .green : .secondary)
-                .font(.title3)
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+            Text(product.name)
+                .font(.body)
             
-            // Product details
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-                Text(product.name)
-                    .font(.body)
-                
-                Text(product.quantity.displayString)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            Text(product.quantity.displayString)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
         }
     }
 }
@@ -241,23 +219,24 @@ private struct ProductPickerView: View {
                 ForEach(filteredProducts) { product in
                     Button(action: { toggleProduct(product) }) {
                         HStack(spacing: AppTheme.Spacing.md) {
-                            // Checkmark for selected products
-                            Image(systemName: selectedProductIds.contains(product.id) ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(selectedProductIds.contains(product.id) ? .blue : .secondary)
-                                .font(.title3)
-                            
-                            // Product info
                             VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
                                 Text(product.name)
                                     .font(.body)
                                     .foregroundStyle(.primary)
                                 
                                 Text(product.quantity.displayString)
-                                    .font(.caption)
+                                    .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
                             
                             Spacer()
+                            
+                            if selectedProductIds.contains(product.id) {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(.blue)
+                                    .font(.body)
+                                    .fontWeight(.semibold)
+                            }
                         }
                     }
                 }

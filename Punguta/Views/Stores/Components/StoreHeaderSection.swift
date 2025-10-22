@@ -16,22 +16,13 @@ struct StoreHeaderSection: View {
     let onTypeChange: (StoreType) -> Void
     
     var body: some View {
-        VStack {
-            HStack(spacing: 16) {
-                // Store type icon circle
-                StoreTypeIcon(type: selectedType)
-                
-                // Store name text field
-                TextField("Store Name", text: $name)
-                    .font(.title3.weight(.semibold))
-                    .multilineTextAlignment(.center)
-                    .textFieldStyle(.plain)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-            .padding(.horizontal, 35)
-            .padding(.vertical, 10)
+        VStack(spacing: AppTheme.Spacing.md) {
+            // Store name text field
+            TextField("Store Name", text: $name)
+                .font(.title3.weight(.semibold))
+                .textFieldStyle(.plain)
+                .padding(.horizontal, AppTheme.Spacing.md)
+                .padding(.vertical, AppTheme.Spacing.md)
             
             // Store type picker
             Picker("Type", selection: $selectedType) {
@@ -44,23 +35,7 @@ struct StoreHeaderSection: View {
                 onTypeChange(newValue)
             }
         }
-        .padding(.horizontal, 35)
-    }
-}
-
-/// Large circular icon representing the store type
-private struct StoreTypeIcon: View {
-    let type: StoreType
-    
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(type.color.gradient)
-                .frame(width: 70, height: 70)
-            Image(systemName: type.icon)
-                .font(.system(size: 32, weight: .semibold))
-                .foregroundStyle(.white)
-        }
+        .padding(.horizontal, AppTheme.Spacing.lg)
     }
 }
 

@@ -58,40 +58,22 @@ private struct CategorySectionHeader: View {
             
             Spacer()
             
-            Button(action: onAddCategory) {
-                HStack(spacing: 4) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 20))
-                    Text("Add")
-                        .font(.subheadline.weight(.medium))
-                }
-                .foregroundStyle(storeTypeColor)
-            }
-            .disabled(!canAddMore)
+            Button("Add", action: onAddCategory)
+                .disabled(!canAddMore)
         }
-        .padding(.horizontal, 35)
+        .padding(.horizontal, AppTheme.Spacing.lg)
     }
 }
 
 /// Empty state when no categories are selected
 private struct EmptyCategoryState: View {
     var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "tag.slash")
-                .font(.system(size: 32))
-                .foregroundStyle(.secondary)
-            Text("No categories yet")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Text("Tap Add to select categories")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 32)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .padding(.horizontal, 35)
+        Text("No categories yet. Tap Add to select categories.")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.vertical, AppTheme.Spacing.xl)
+            .padding(.horizontal, AppTheme.Spacing.lg)
     }
 }
 
@@ -124,44 +106,14 @@ private struct CategoryList: View {
     }
 }
 
-/// Individual category row with icon and name
+/// Individual category row with name only
 private struct CategoryRowView: View {
     let category: Category
     
     var body: some View {
-        HStack(spacing: 12) {
-            // Category icon badge
-            CategoryIconBadge(
-                icon: category.icon,
-                color: category.visualColor
-            )
-            
-            // Category name
-            Text(category.name)
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.primary)
-        }
-        .padding(.leading, 8)
-    }
-}
-
-/// Circular badge with category icon
-private struct CategoryIconBadge: View {
-    let icon: String
-    let color: Color
-    
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(color.gradient)
-                .frame(width: 32, height: 32)
-                .overlay(
-                    Circle()
-                        .strokeBorder(Color.gray.opacity(0.2), lineWidth: 1)
-                )
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.white)
-        }
+        Text(category.name)
+            .font(.subheadline)
+            .foregroundStyle(.primary)
+            .padding(.leading, AppTheme.Spacing.sm)
     }
 }

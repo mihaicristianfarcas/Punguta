@@ -97,33 +97,19 @@ struct AddEditProductView: View {
             Form {
                 // MARK: Product Name Section
                 // Main product name input with auto-categorization trigger
-                Section {
+                Section("Product Details") {
                     TextField("Product Name", text: $name)
                         .autocorrectionDisabled()
                         .onChange(of: name) { oldValue, newValue in
                             autoSuggestCategory()
                         }
-                } header: {
-                    Text("Product Details")
-                } footer: {
-                    // Show hint about auto-categorization for new products only
-                    if productToEdit == nil {
-                        Text("Category will be auto-suggested based on product name")
-                            .font(.caption)
-                    }
                 }
                 
                 // MARK: Category Selection Section
-                // Dropdown picker showing all available categories with icons
                 Section("Category") {
-                    Picker("Select Category", selection: $selectedCategoryId) {
+                    Picker("Category", selection: $selectedCategoryId) {
                         ForEach(categories) { category in
-                            HStack {
-                                Image(systemName: category.icon)
-                                    .foregroundStyle(category.visualColor)
-                                Text(category.name)
-                            }
-                            .tag(category.id)
+                            Text(category.name).tag(category.id)
                         }
                     }
                     .pickerStyle(.menu)
@@ -147,35 +133,6 @@ struct AddEditProductView: View {
                     }
                 }
                 
-                // MARK: Preview Section
-                // Live preview of how the product will appear in lists
-                if isFormValid {
-                    Section("Preview") {
-                        HStack {
-                            // Category icon
-                            if let category = categories.first(where: { $0.id == selectedCategoryId }) {
-                                Image(systemName: category.icon)
-                                    .foregroundStyle(category.visualColor)
-                                    .font(.title2)
-                            }
-                            
-                            // Product name and quantity
-                            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-                                Text(name)
-                                    .font(.headline)
-                                
-                                if let amountValue = Double(amount) {
-                                    Text("\(formatAmount(amountValue)) \(selectedUnit)")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            
-                            Spacer()
-                        }
-                        .padding(.vertical, AppTheme.Spacing.sm)
-                    }
-                }
             }
             .navigationTitle(productToEdit == nil ? "New Product" : "Edit Product")
             .navigationBarTitleDisplayMode(.inline)

@@ -94,39 +94,75 @@ struct AddEditStoreView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: AppTheme.Spacing.lg) {
-                    // MARK: Store Header Section
-                    // Icon, name input, and type picker
-                    StoreHeaderSection(
-                        name: $name,
-                        selectedType: $selectedType,
-                        isEditing: isEditing,
-                        onTypeChange: updateDefaultCategories
-                    )
+            Form {
+                // MARK: Store Details Section
+                Section("Store Details") {
+                    TextField("Store Name", text: $name)
                     
-                    // MARK: Location Selection Button
-                    // Opens full-screen map picker
-                    LocationSelectionButton(
-                        coordinate: $selectedCoordinate,
-                        address: $address,
-                        onTap: { showingLocationPicker = true }
-                    )
-                    
-                    // MARK: Category List Section
-                    // Reorderable list of categories with add button
-                    CategoryListSection(
-                        selectedCategories: $selectedCategories,
-                        categories: viewModel.categories,
-                        storeTypeColor: selectedType.color,
-                        onAddCategory: { showingAddCategory = true },
-                        onMove: moveCategories
-                    )
+                    Picker("Type", selection: $selectedType) {
+                        ForEach(StoreType.allCases, id: \.self) { type in
+                            Text(type.rawValue).tag(type)
+                        }
+                    }
+                    .onChange(of: selectedType) { oldValue, newValue in
+                        updateDefaultCategories(for: newValue)
+                    }
                 }
-                .padding(.bottom, AppTheme.Spacing.lg)
+                
+                // MARK: Location Section
+                Section("Location") {
+                    Button(action: { showingLocationPicker = true }) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                                Text(selectedCoordinate != nil ? "Location Set" : "Set Location")
+                                    .foregroundStyle(.primary)
+                                
+                                if let _ = selectedCoordinate {
+                                    Text(address.isEmpty ? "Tap to change" : address)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                } else {
+                                    Text("Required")
+                                        .font(.caption)
+                                        .foregroundStyle(.red)
+                                }
+                            }
+                            
+                            Spacer()
+                            
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+                
+                // MARK: Categories Section
+                Section {
+                    if selectedCategories.isEmpty {
+                        Text("No categories yet")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, AppTheme.Spacing.sm)
+                    } else {
+                        ForEach(Array(selectedCategories.enumerated()), id: \.element) { index, categoryId in
+                            if let category = viewModel.categories.first(where: { $0.id == categoryId }) {
+                                Text(category.name)
+                            }
+                        }
+                        .onMove(perform: moveCategories)
+                    }
+                    
+                    Button("Add Category") {
+                        showingAddCategory = true
+                    }
+                    .disabled(availableCategories.isEmpty)
+                } header: {
+                    Text("Categories (\(selectedCategories.count))")
+                }
             }
-            .scrollDismissesKeyboard(.interactively)
-            .background(Color(.systemGroupedBackground))
             .navigationTitle(isEditing ? "Edit Store" : "New Store")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
