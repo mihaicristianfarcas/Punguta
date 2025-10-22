@@ -87,47 +87,57 @@ struct ProductsListView: View {
                 Color(.systemGroupedBackground)
                     .ignoresSafeArea()
                 
-                if filteredProducts.isEmpty {
-                    if productViewModel.products.isEmpty {
-                        EmptyStateView(
-                            icon: "cart",
-                            title: "No Products Yet",
-                            message: "Create your first product to get started"
-                        )
-                    } else {
-                        ProductsNoResultsView(searchText: searchText)
-                    }
-                } else {
-                    List {
-                        // Category filter pills
-                        Section {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: AppTheme.Spacing.sm) {
+                List {
+                    // Category filter pills
+                    Section {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: AppTheme.Spacing.sm) {
+                                FilterPillView(
+                                    title: "All",
+                                    isSelected: selectedCategory == nil,
+                                    action: { selectedCategory = nil }
+                                )
+                                
+                                ForEach(categories) { category in
                                     FilterPillView(
-                                        title: "All",
-                                        isSelected: selectedCategory == nil,
-                                        action: { selectedCategory = nil }
-                                    )
-                                    
-                                    ForEach(categories) { category in
-                                        FilterPillView(
-                                            title: category.name,
-                                            icon: category.icon,
-                                            color: category.visualColor,
-                                            isSelected: selectedCategory == category.id,
-                                            action: { 
-                                                selectedCategory = selectedCategory == category.id ? nil : category.id
-                                            }
+                                        title: category.name,
+                                        icon: category.icon,
+                                        color: category.visualColor,
+                                        isSelected: selectedCategory == category.id,
+                                        action: { 
+                                            selectedCategory = selectedCategory == category.id ? nil : category.id
+                                        }
                                         )
                                     }
                                 }
-                                .padding(.vertical, AppTheme.Spacing.sm)
+                                .padding(AppTheme.Spacing.sm)
                             }
                         }
-                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
-                        
+
+                    
+                    // Products or empty states
+                    if filteredProducts.isEmpty {
+                        if productViewModel.products.isEmpty {
+                            Section {
+                                EmptyStateView(
+                                    icon: "cart",
+                                    title: "No Products Yet",
+                                    message: "Create your first product to get started"
+                                )
+                                .frame(maxWidth: .infinity)
+                                .listRowInsets(EdgeInsets())
+                            }
+                        } else {
+                            Section {
+                                ProductsNoResultsView(searchText: searchText)
+                                    .frame(maxWidth: .infinity)
+                                    .listRowInsets(EdgeInsets())
+                            }
+                        }
+                    } else {
                         // Products grouped by category
                         ForEach(categoriesWithProducts) { category in
                             Section {
@@ -152,18 +162,19 @@ struct ProductsListView: View {
                             }
                         }
                     }
-                    .listStyle(.insetGrouped)
-                    .scrollContentBackground(.hidden)
                 }
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
             }
             .navigationTitle("All Products")
             .navigationBarTitleDisplayMode(.large)
             .searchable(text: $searchText, prompt: "Search products")
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: { showingAddProduct = true }) {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingAddProduct = true
+                    } label: {
                         Image(systemName: "plus")
-                            .fontWeight(.semibold)
                     }
                 }
             }
@@ -212,39 +223,34 @@ private struct ProductRowView: View {
     let onDelete: () -> Void
     
     var body: some View {
-        HStack(spacing: 12) {
-            // Category icon
-            ZStack {
-                Circle()
-                    .fill(category.visualColor.opacity(0.2))
-                    .frame(width: 40, height: 40)
-                
-                Image(systemName: category.icon)
-                    .foregroundStyle(category.visualColor)
-                    .font(.system(size: 18))
-            }
-            
+        HStack(spacing: AppTheme.Spacing.md) {
             // Product info
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
                 Text(product.name)
                     .font(.body)
-                    .fontWeight(.medium)
+                    .fontWeight(AppTheme.FontWeight.semibold)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
                 
-                HStack {
+                HStack(spacing: AppTheme.Spacing.sm) {
                     Text(product.quantity.displayString)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.subheadline)
+                        .foregroundStyle(.primary.opacity(0.9))
                     
                     if product.isChecked {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                            .font(.caption)
+                        Text("•")
+                            .foregroundStyle(.primary.opacity(0.6))
+                        
+                        Text("Completed")
+                            .font(.subheadline)
+                            .foregroundStyle(.primary.opacity(0.9))
                     }
                 }
             }
             
             Spacer()
         }
+        .padding(AppTheme.Spacing.md)
         .contentShape(Rectangle())
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(role: .destructive, action: onDelete) {
@@ -286,7 +292,7 @@ private struct ProductsNoResultsView: View {
                     .fontWeight(AppTheme.FontWeight.bold)
                     .foregroundStyle(AppTheme.Colors.primaryText)
                 
-                Text("No products found for '\(searchText)'")
+                Text("No products found")
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.Colors.secondaryText)
                     .multilineTextAlignment(.center)

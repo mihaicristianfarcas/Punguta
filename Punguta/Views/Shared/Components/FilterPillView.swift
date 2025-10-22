@@ -49,14 +49,14 @@ struct FilterPillView: View {
                     .font(.subheadline)
                     .fontWeight(AppTheme.FontWeight.md)
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, AppTheme.Spacing.md)
             .padding(.vertical, AppTheme.Spacing.sm)
             .background(pillBackground)
             .foregroundStyle(pillForeground)
             .clipShape(Capsule())
             .overlay(
                 Capsule()
-                    .stroke(pillBorder, lineWidth: 2)
+                    .stroke(pillBorder, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
