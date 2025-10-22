@@ -8,24 +8,43 @@
 import SwiftUI
 import MapKit
 
-/// Detail view for a store showing its information and categories
+// MARK: - Store Detail View
+
+/// Detailed view of a store with all its information
+/// Features:
+/// - Store header with icon, name, and type badge
+/// - Location information (address and coordinates)
+/// - Categories section showing store's category order
+/// - Empty states for missing data
+/// - Color-coded UI based on store type
 struct StoreDetailView: View {
+    
+    // MARK: Properties
+    
+    /// The store being displayed
     let store: Store
+    
+    /// View model for accessing categories data
     let viewModel: StoreViewModel
+    
+    // MARK: Body
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
-                // Store Header Card
+            VStack(spacing: AppTheme.Spacing.xl) {
+                // MARK: Store Header Card
+                // Displays store icon, name, and type
                 StoreHeaderCard(store: store)
                 
-                // Location Section
+                // MARK: Location Section
+                // Shows address and coordinates with map icons
                 LocationSection(store: store)
                 
-                // Categories Section
+                // MARK: Categories Section
+                // Grid of categories in the store's custom order
                 CategoriesSection(store: store, viewModel: viewModel)
             }
-            .padding(.vertical, 20)
+            .padding(.vertical, AppTheme.Spacing.lg)
         }
         .background(Color(.systemGroupedBackground))
         .navigationTitle(store.name)
@@ -34,12 +53,16 @@ struct StoreDetailView: View {
 }
 
 // MARK: - Store Header Card
+
+/// Header card showing store icon, name, and type badge
+/// Uses color coding based on store type for visual distinction
 private struct StoreHeaderCard: View {
     let store: Store
     
     var body: some View {
-        VStack(spacing: 16) {
-            // Store Icon
+        VStack(spacing: AppTheme.Spacing.md) {
+            // MARK: Store Icon
+            // Large circular icon with gradient background
             ZStack {
                 Circle()
                     .fill(storeColor.gradient)
@@ -50,30 +73,38 @@ private struct StoreHeaderCard: View {
                     .foregroundStyle(.white)
             }
             
-            // Store Info
-            VStack(spacing: 8) {
+            // MARK: Store Info
+            VStack(spacing: AppTheme.Spacing.sm) {
+                // Store name
                 Text(store.name)
                     .font(.title2)
                     .fontWeight(.bold)
                 
+                // Store type badge
                 Text(store.type.rawValue)
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundStyle(storeColor)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, AppTheme.Spacing.md)
+                    .padding(.vertical, AppTheme.Spacing.xs)
                     .background(storeColor.opacity(0.1))
                     .clipShape(Capsule())
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
+        .padding(.vertical, AppTheme.Spacing.xl)
         .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-        .padding(.horizontal, 16)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.CornerRadius.lg))
+        .shadow(
+            color: AppTheme.Shadow.md.color,
+            radius: AppTheme.Shadow.md.radius,
+            x: AppTheme.Shadow.md.x,
+            y: AppTheme.Shadow.md.y
+        )
+        .padding(.horizontal, AppTheme.Spacing.md)
     }
     
+    /// Returns the appropriate SF Symbol icon for each store type
     private var storeIcon: String {
         switch store.type {
         case .grocery: return "cart.fill"
@@ -83,6 +114,7 @@ private struct StoreHeaderCard: View {
         }
     }
     
+    /// Returns the color associated with each store type
     private var storeColor: Color {
         switch store.type {
         case .grocery: return .green
@@ -94,20 +126,25 @@ private struct StoreHeaderCard: View {
 }
 
 // MARK: - Location Section
+
+/// Displays store location information
+/// Shows both human-readable address (if available) and precise coordinates
 private struct LocationSection: View {
     let store: Store
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            // Section header
             Text("Location")
                 .font(.headline)
                 .foregroundStyle(.primary)
-                .padding(.horizontal, 16)
+                .padding(.horizontal, AppTheme.Spacing.md)
             
-            VStack(spacing: 12) {
-                // Address
+            VStack(spacing: AppTheme.Spacing.md) {
+                // MARK: Address Card
+                // Only shown if address is available
                 if let address = store.location.address {
-                    HStack(spacing: 12) {
+                    HStack(spacing: AppTheme.Spacing.md) {
                         Image(systemName: "mappin.circle.fill")
                             .font(.system(size: 24))
                             .foregroundStyle(.red)
@@ -118,18 +155,19 @@ private struct LocationSection: View {
                         
                         Spacer()
                     }
-                    .padding(16)
+                    .padding(AppTheme.Spacing.md)
                     .background(Color(.systemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.CornerRadius.md))
                 }
                 
-                // Coordinates
-                HStack(spacing: 12) {
+                // MARK: Coordinates Card
+                // Always shown, displays latitude and longitude
+                HStack(spacing: AppTheme.Spacing.md) {
                     Image(systemName: "location.circle.fill")
                         .font(.system(size: 24))
                         .foregroundStyle(.blue)
                     
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
                         Text("Coordinates")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -141,20 +179,25 @@ private struct LocationSection: View {
                     
                     Spacer()
                 }
-                .padding(16)
+                .padding(AppTheme.Spacing.md)
                 .background(Color(.systemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.CornerRadius.md))
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, AppTheme.Spacing.md)
         }
     }
 }
 
 // MARK: - Categories Section
+
+/// Displays store's categories in their custom order
+/// Shows a 2-column grid of category cards with count badge
 private struct CategoriesSection: View {
     let store: Store
     let viewModel: StoreViewModel
     
+    /// Categories in the store's custom ordering
+    /// Resolves category IDs to full Category objects
     private var orderedCategories: [Category] {
         store.categoryOrder.compactMap { categoryId in
             viewModel.categories.first { $0.id == categoryId }
@@ -162,7 +205,8 @@ private struct CategoriesSection: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            // Section header with count badge
             HStack {
                 Text("Categories")
                     .font(.headline)
@@ -170,40 +214,46 @@ private struct CategoriesSection: View {
                 
                 Spacer()
                 
+                // Count badge
                 Text("\(orderedCategories.count)")
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, AppTheme.Spacing.sm)
+                    .padding(.vertical, AppTheme.Spacing.xs)
                     .background(Color(.systemGray5))
                     .clipShape(Capsule())
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, AppTheme.Spacing.md)
             
+            // Grid of categories or empty state
             if orderedCategories.isEmpty {
                 EmptyCategoriesState()
             } else {
                 LazyVGrid(columns: [
                     GridItem(.flexible()),
                     GridItem(.flexible())
-                ], spacing: 12) {
+                ], spacing: AppTheme.Spacing.md) {
                     ForEach(orderedCategories) { category in
                         CategoryCard(category: category)
                     }
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, AppTheme.Spacing.md)
             }
         }
     }
 }
 
 // MARK: - Category Card
+
+/// Individual category card showing icon and name
+/// Color-coded based on category color
 private struct CategoryCard: View {
     let category: Category
     
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: AppTheme.Spacing.sm) {
+            // Category icon with colored background
             ZStack {
                 Circle()
                     .fill(category.visualColor.gradient)
@@ -214,6 +264,7 @@ private struct CategoryCard: View {
                     .foregroundStyle(.white)
             }
             
+            // Category name
             Text(category.name)
                 .font(.subheadline)
                 .fontWeight(.medium)
@@ -221,17 +272,24 @@ private struct CategoryCard: View {
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
+        .padding(.vertical, AppTheme.Spacing.md)
         .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(color: .black.opacity(0.03), radius: 4, x: 0, y: 2)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.CornerRadius.md))
+        .shadow(
+            color: AppTheme.Shadow.sm.color,
+            radius: AppTheme.Shadow.sm.radius,
+            x: AppTheme.Shadow.sm.x,
+            y: AppTheme.Shadow.sm.y
+        )
     }
 }
 
 // MARK: - Empty Categories State
+
+/// Empty state shown when store has no categories
 private struct EmptyCategoriesState: View {
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: AppTheme.Spacing.md) {
             Image(systemName: "tag.slash")
                 .font(.system(size: 40))
                 .foregroundStyle(.secondary)
@@ -243,8 +301,8 @@ private struct EmptyCategoriesState: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
         .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal, 16)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.CornerRadius.md))
+        .padding(.horizontal, AppTheme.Spacing.md)
     }
 }
 

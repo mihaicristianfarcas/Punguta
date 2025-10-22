@@ -8,49 +8,84 @@
 import SwiftUI
 import MapKit
 
+// MARK: - Stores List View
+
+/// Main view for browsing and managing stores
+///
+/// **Features**:
+/// - List of all stores with details
+/// - CRUD operations (Create, Read, Update, Delete)
+/// - Swipe actions for quick edit/delete
+/// - Empty state with call-to-action
 struct StoresListView: View {
+    
+    // MARK: Properties
+    
+    /// View model managing stores
     @StateObject private var viewModel = StoreViewModel()
+    
+    /// Controls add store sheet visibility
     @State private var showingAddStore = false
+    
+    /// Store currently being edited
     @State private var storeToEdit: Store?
+    
+    /// Store marked for deletion
     @State private var storeToDelete: Store?
+    
+    /// Controls delete confirmation alert
     @State private var showingDeleteConfirmation = false
+    
+    // MARK: Body
     
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(.systemGroupedBackground)
+                // Background
+                AppTheme.Colors.groupedBackground
                     .ignoresSafeArea()
                 
+                // Stores list
                 List {
                     ForEach(viewModel.stores) { store in
                         NavigationLink(destination: StoreDetailView(store: store, viewModel: viewModel)) {
                             StoreRowView(store: store, viewModel: viewModel)
                         }
                         .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color(.systemBackground))
-                                .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+                            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.lg)
+                                .fill(AppTheme.Colors.cardBackground)
+                                .shadow(
+                                    color: AppTheme.Shadow.md.color,
+                                    radius: AppTheme.Shadow.md.radius,
+                                    x: AppTheme.Shadow.md.x,
+                                    y: AppTheme.Shadow.md.y
+                                )
                         )
                         .buttonStyle(.plain)
-                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                        .listRowInsets(EdgeInsets(
+                            top: AppTheme.Spacing.xs + 2,
+                            leading: AppTheme.Spacing.md,
+                            bottom: AppTheme.Spacing.xs + 2,
+                            trailing: AppTheme.Spacing.md
+                        ))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
                         .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                                Button {
-                                    storeToEdit = store
-                                } label: {
-                                    Label("Edit", systemImage: "pencil")
-                                }
-                                .tint(.orange)
-                                
-                                Button {
-                                    storeToDelete = store
-                                    showingDeleteConfirmation = true
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                                .tint(.red)
+                            Button {
+                                storeToEdit = store
+                            } label: {
+                                Label("Edit", systemImage: "pencil")
                             }
+                            .tint(AppTheme.Colors.warning)
+                            
+                            Button {
+                                storeToDelete = store
+                                showingDeleteConfirmation = true
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                            .tint(AppTheme.Colors.destructive)
+                        }
                     }
                 }
                 .listStyle(.plain)
@@ -83,107 +118,94 @@ struct StoresListView: View {
             }
             .overlay {
                 if viewModel.stores.isEmpty {
-                    VStack(spacing: 20) {
-                    
-                        Image(systemName: "storefront")
-                            .font(.system(size: 50))
-                            .foregroundStyle(.secondary)
-                        
-                        VStack(spacing: 14) {
-                            Text("No Stores Yet!")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                            
-                            Text("Add your first store to start organizing your shopping")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 40)
-                        }
-                        
-                        Button(action: { showingAddStore = true }) {
-                            HStack {
-                                Image(systemName: "plus.circle.fill")
-                                Text("Add Store")
-                                    .fontWeight(.semibold)
-                            }
-                            .padding(.horizontal, 24)
-                            .padding(.vertical, 12)
-                            .background(Color.blue.gradient)
-                            .foregroundStyle(.white)
-                            .clipShape(Capsule())
-                        }
-                        .padding(.top, 8)
-                    }
+                    EmptyStateView(
+                        icon: "storefront",
+                        title: "No Stores Yet",
+                        message: "Add your first store to start organizing your shopping",
+                        actionTitle: "Add Store",
+                        action: { showingAddStore = true }
+                    )
                 }
             }
         }
     }
 }
 
-struct StoreRowView: View {
+// MARK: - Store Row View
+
+/// Displays a single store in the list
+/// Shows store name, type, location, and category count
+private struct StoreRowView: View {
+    
+    // MARK: Properties
+    
     let store: Store
     let viewModel: StoreViewModel
     
+    // MARK: Body
+    
     var body: some View {
-        VStack(alignment: .leading) {
-            // Header with icon and store name
-            HStack(spacing: 10) {
-                // Colorful icon background
-                ZStack {
-                    Circle()
-                        .fill(storeColor.gradient)
-                        .frame(width: 60, height: 60)
+        HStack(spacing: AppTheme.Spacing.md) {
+            // Store icon
+            ZStack {
+                Circle()
+                    .fill(storeColor.gradient)
+                    .frame(width: AppTheme.IconSize.huge, height: AppTheme.IconSize.huge)
+                
+                Image(systemName: storeIcon)
+                    .font(.system(size: AppTheme.IconSize.lg, weight: AppTheme.FontWeight.md))
+                    .foregroundStyle(.white)
+            }
+            
+            // Store details
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                // Store name and type
+                HStack {
+                    Text(store.name)
+                        .font(.title3)
+                        .fontWeight(AppTheme.FontWeight.md)
+                        .foregroundStyle(AppTheme.Colors.primaryText)
+                        .lineLimit(1)
                     
-                    Image(systemName: storeIcon)
-                        .font(.system(size: 25, weight: .medium))
-                        .foregroundStyle(.white)
+                    Text(store.type.rawValue)
+                        .font(.subheadline)
+                        .fontWeight(AppTheme.FontWeight.md)
+                        .foregroundStyle(storeColor)
+                        .lineLimit(1)
                 }
                 
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack {
-                        Text(store.name)
-                            .font(.title3)
-                            .fontWeight(.medium)
-                            .foregroundStyle(.primary)
-                            .lineLimit(1)
-                        
-                        Text(store.type.rawValue)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundStyle(storeColor)
-                            .lineLimit(1)
-                    }
-                    HStack(spacing: 4) {
-                        if let address = store.location.address {
-                            Text("at")
-                                .foregroundStyle(.secondary)
-                            
-                            Text(address)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                    }
-                    
-                    // Category count badge
-                    HStack(spacing: 4) {
-                        Image(systemName: "tag")
+                // Location
+                if let address = store.location.address {
+                    HStack(spacing: AppTheme.Spacing.xs) {
+                        Image(systemName: "mappin.circle.fill")
                             .font(.caption2)
-                        Text("\(store.categoryOrder.count) categories")
-                            .font(.caption)
-                            .fontWeight(.medium)
+                        Text(address)
+                            .font(.subheadline)
+                            .lineLimit(1)
                     }
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 4)
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
                 }
-
-                Spacer()
+                
+                // Category count
+                HStack(spacing: AppTheme.Spacing.xs) {
+                    Image(systemName: "tag.fill")
+                        .font(.caption2)
+                    Text("\(store.categoryOrder.count) categories")
+                        .font(.caption)
+                        .fontWeight(AppTheme.FontWeight.md)
+                }
+                .foregroundStyle(AppTheme.Colors.secondaryText)
+                .padding(.top, AppTheme.Spacing.xs)
             }
-            .padding(16)
+            
+            Spacer()
         }
+        .padding(AppTheme.Spacing.md)
     }
     
+    // MARK: Computed Properties
+    
+    /// Icon representing the store type
     private var storeIcon: String {
         switch store.type {
         case .grocery: return "cart.fill"
@@ -193,21 +215,18 @@ struct StoreRowView: View {
         }
     }
     
+    /// Color associated with the store type
     private var storeColor: Color {
         switch store.type {
-        case .grocery: return .green
-        case .pharmacy: return .red
-        case .hardware: return .orange
-        case .hypermarket: return .blue
+        case .grocery: return AppTheme.Colors.success
+        case .pharmacy: return AppTheme.Colors.destructive
+        case .hardware: return AppTheme.Colors.warning
+        case .hypermarket: return AppTheme.Colors.primaryAction
         }
     }
-    
-    private func categoryColor(for categoryName: String) -> Color {
-        let colors: [Color] = [.purple, .pink, .indigo, .teal, .cyan, .mint]
-        let index = abs(categoryName.hashValue) % colors.count
-        return colors[index]
-    }
 }
+
+// MARK: - Preview
 
 #Preview {
     StoresListView()

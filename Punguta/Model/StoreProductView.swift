@@ -7,32 +7,70 @@
 
 import Foundation
 
-/// Helper structure for displaying products filtered by store
-/// Shows only products that match the store's categories, organized by category order
+// MARK: - Category Product Group
+
+/// Groups products under a single category for display
+/// Used to organize products by category within a store view
 struct CategoryProductGroup: Identifiable, Hashable {
+    
+    /// Uses categoryId as the unique identifier
     var id: UUID { categoryId }
+    
+    /// The category ID for this group
     let categoryId: UUID
+    
+    /// Display name of the category
     let categoryName: String
+    
+    /// Products belonging to this category
     let products: [Product]
 }
 
+// MARK: - Store Product View
+
+/// View model for displaying products organized by a specific store's layout
+///
+/// **Purpose**: Transforms the global product list into a store-specific view
+/// - Filters products to show only those in the store's categories
+/// - Orders products according to the store's category arrangement
+/// - Useful for shopping at a specific store
 struct StoreProductView {
+    
+    // MARK: Properties
+    
+    /// ID of the store this view represents
     let storeId: UUID
+    
+    /// Name of the store
     let storeName: String
+    
+    /// Products organized by category in store order
     let productsByCategory: [CategoryProductGroup]
     
-    /// Filters products from shopping lists based on store's categories
+    // MARK: Factory Method
+    
+    /// Creates a store-specific product view from global data
+    ///
+    /// **Algorithm**:
+    /// 1. Filter products to those in store's categories
+    /// 2. Group filtered products by category
+    /// 3. Order groups according to store's category order
+    /// 4. Sort products alphabetically within each group
+    ///
     /// - Parameters:
-    ///   - store: The store to filter for
-    ///   - products: All products from shopping lists
+    ///   - store: The store to create view for
+    ///   - products: All available products
     ///   - categories: All available categories
-    /// - Returns: Products organized by the store's category order
+    /// - Returns: Store-specific product view
     static func create(
         for store: Store,
         from products: [Product],
         using categories: [Category]
     ) -> StoreProductView {
-        let categoryMap = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
+        // Create quick lookup map for categories
+        let categoryMap = Dictionary(
+            uniqueKeysWithValues: categories.map { ($0.id, $0) }
+        )
         
         // Filter products that belong to categories in this store
         let storeCategories = Set(store.categoryOrder)
@@ -44,11 +82,13 @@ struct StoreProductView {
         for categoryId in store.categoryOrder {
             let categoryProducts = filteredProducts.filter { $0.categoryId == categoryId }
             
+            // Only include categories that have products
             if !categoryProducts.isEmpty, let category = categoryMap[categoryId] {
                 productsByCategory.append(
                     CategoryProductGroup(
                         categoryId: categoryId,
                         categoryName: category.name,
+                        // Sort products alphabetically within category
                         products: categoryProducts.sorted { $0.name < $1.name }
                     )
                 )
@@ -61,6 +101,8 @@ struct StoreProductView {
             productsByCategory: productsByCategory
         )
     }
+    
+    // MARK: Computed Properties
     
     /// Total count of products available at this store
     var totalProductCount: Int {

@@ -7,16 +7,39 @@
 
 import Foundation
 
+// MARK: - Category
+
+/// Represents a product category for organization and auto-categorization
+///
+/// **Key Features**:
+/// - Keywords enable automatic product categorization
+/// - Default units simplify product creation
+/// - Visual styling defined in Category+Visual extension
 struct Category: Identifiable, Codable, Hashable {
+    
+    // MARK: Properties
+    
+    /// Unique identifier for the category
     let id: UUID
+    
+    /// Display name of the category (e.g., "Dairy", "Produce")
     var name: String
-    var keywords: [String] // Predefined items for auto-categorization (lowercase for matching)
-    var defaultUnit: String? // Default unit for this category
+    
+    /// Keywords for auto-categorization (stored in lowercase)
+    /// When a product name contains a keyword, this category is suggested
+    var keywords: [String]
+    
+    /// Default unit of measurement for products in this category
+    /// Example: "kg" for Produce, "L" for Beverages, "pcs" for Bakery
+    var defaultUnit: String?
+    
+    // MARK: Initializer
     
     init(id: UUID = UUID(), name: String, keywords: [String], defaultUnit: String? = nil) {
         self.id = id
         self.name = name
-        self.keywords = keywords.map { $0.lowercased() } // Ensure lowercase for matching
+        // Ensure all keywords are lowercase for case-insensitive matching
+        self.keywords = keywords.map { $0.lowercased() }
         self.defaultUnit = defaultUnit
     }
 }
