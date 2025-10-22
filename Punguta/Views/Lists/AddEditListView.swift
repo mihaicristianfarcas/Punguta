@@ -132,8 +132,9 @@ struct AddEditListView: View {
             // Product picker sheet
             .sheet(isPresented: $showingProductPicker) {
                 ProductPickerView(
+                    productViewModel: productViewModel,
+                    availableProducts: productViewModel.products,
                     selectedProductIds: $selectedProductIds,
-                    availableProducts: productViewModel.products
                 )
             }
         }
@@ -187,64 +188,90 @@ private struct ProductRowView: View {
 // MARK: - Product Picker View
 
 /// Modal sheet for selecting products to add to the list
-/// Features:
-/// - Searchable list of all products
-/// - Multi-select with checkmark indicators
-/// - Real-time search filtering
 private struct ProductPickerView: View {
     @Environment(\.dismiss) private var dismiss
     
-    /// Binding to selected product IDs array
-    @Binding var selectedProductIds: [UUID]
+    let productViewModel: ProductViewModel
     
-    /// All available products to choose from
     let availableProducts: [Product]
     
-    /// Search query text
-    @State private var searchText = ""
+    @Binding var selectedProductIds: [UUID]
     
-    /// Filters products by name based on search text
+    @State private var searchText = ""
+    @State private var showingAddProduct = false
+    
     private var filteredProducts: [Product] {
         if searchText.isEmpty {
-            return availableProducts
+            return availableProducts.sorted { $0.name < $1.name }
         }
-        return availableProducts.filter {
-            $0.name.localizedCaseInsensitiveContains(searchText)
-        }
+        return availableProducts
+            .filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+            .sorted { $0.name < $1.name }
     }
     
     var body: some View {
         NavigationStack {
             List {
-                ForEach(filteredProducts) { product in
-                    Button(action: { toggleProduct(product) }) {
-                        HStack(spacing: AppTheme.Spacing.md) {
-                            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-                                Text(product.name)
-                                    .font(.body)
-                                    .foregroundStyle(.primary)
+                if filteredProducts.isEmpty {
+                    Section {
+                        Text("No products found")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, AppTheme.Spacing.lg)
+                    }
+                } else {
+                    ForEach(filteredProducts) { product in
+                        Button(action: { toggleProduct(product) }) {
+                            HStack(spacing: AppTheme.Spacing.md) {
+                                VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                                    Text(product.name)
+                                        .font(.body)
+                                        .foregroundStyle(.primary)
+                                    
+                                    Text(product.quantity.displayString)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
                                 
-                                Text(product.quantity.displayString)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                
+                                if selectedProductIds.contains(product.id) {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(.blue)
+                                        .font(.body.weight(.semibold))
+                                }
                             }
-                            
-                            Spacer()
-                            
-                            if selectedProductIds.contains(product.id) {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(.blue)
-                                    .font(.body)
-                                    .fontWeight(.semibold)
-                            }
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
                     }
                 }
             }
+            .listStyle(.insetGrouped)
             .searchable(text: $searchText, prompt: "Search products")
             .navigationTitle("Select Products")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                
+                ToolbarItem(placement: .principal) {
+                    Button {
+                        showingAddProduct = true
+                    } label: {
+                        HStack(spacing: AppTheme.Spacing.xs) {
+                            Image(systemName: "plus.circle.fill")
+                            Text("Create New")
+                        }
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    }
+                }
+                
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         dismiss()
@@ -252,10 +279,19 @@ private struct ProductPickerView: View {
                     .fontWeight(.semibold)
                 }
             }
+            .sheet(isPresented: $showingAddProduct) {
+                AddEditProductView(
+                    viewModel: productViewModel,
+                    categories: Category.defaultCategories,
+                    onProductCreated: { productId in
+                        // Automatically select the newly created product
+                        selectedProductIds.append(productId)
+                    }
+                )
+            }
         }
     }
     
-    /// Toggles product selection on/off
     private func toggleProduct(_ product: Product) {
         if let index = selectedProductIds.firstIndex(of: product.id) {
             selectedProductIds.remove(at: index)

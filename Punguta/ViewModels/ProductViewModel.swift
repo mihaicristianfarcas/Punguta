@@ -51,11 +51,14 @@ class ProductViewModel: ObservableObject {
     ///   - name: Product name
     ///   - categoryId: Category the product belongs to
     ///   - quantity: Amount and unit
-    func createProduct(name: String, categoryId: UUID, quantity: ProductQuantity) {
+    /// - Returns: The ID of the newly created product
+    @discardableResult
+    func createProduct(name: String, categoryId: UUID, quantity: ProductQuantity) -> UUID {
         let product = Product(name: name, categoryId: categoryId, quantity: quantity)
         products.append(product)
         saveProducts()
         objectWillChange.send()
+        return product.id
     }
     
     /// Update an existing product
@@ -74,18 +77,6 @@ class ProductViewModel: ObservableObject {
     /// - Note: Caller is responsible for removing product from shopping lists
     func deleteProduct(_ product: Product) {
         products.removeAll { $0.id == product.id }
-        saveProducts()
-        objectWillChange.send()
-    }
-    
-    /// Toggle the checked state of a product
-    /// - Parameter product: The product to toggle
-    /// - Note: Checked state is shared across all lists
-    func toggleProductChecked(_ product: Product) {
-        guard let index = products.firstIndex(where: { $0.id == product.id }) else {
-            return
-        }
-        products[index].toggleChecked()
         saveProducts()
         objectWillChange.send()
     }

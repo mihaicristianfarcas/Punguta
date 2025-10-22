@@ -129,6 +129,19 @@ class ListViewModel: ObservableObject {
         saveLists()
     }
     
+    /// Toggle the checked state of a product in a specific list
+    /// - Parameters:
+    ///   - productId: ID of the product to toggle
+    ///   - listId: ID of the shopping list
+    func toggleProductChecked(_ productId: UUID, inList listId: UUID) {
+        guard let index = shoppingLists.firstIndex(where: { $0.id == listId }) else {
+            return
+        }
+        shoppingLists[index].toggleProductChecked(productId)
+        saveLists()
+        objectWillChange.send()
+    }
+    
     // MARK: - Query Methods
     
     /// Get a specific shopping list by ID

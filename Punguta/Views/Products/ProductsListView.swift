@@ -196,33 +196,19 @@ private struct ProductRowView: View {
     
     var body: some View {
         HStack(spacing: AppTheme.Spacing.md) {
-            // Product info
             VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
                 Text(product.name)
                     .font(.body)
                     .fontWeight(AppTheme.FontWeight.semibold)
                     .foregroundStyle(.primary)
-                    .lineLimit(1)
                 
-                HStack(spacing: AppTheme.Spacing.sm) {
-                    Text(product.quantity.displayString)
-                        .font(.subheadline)
-                        .foregroundStyle(.primary.opacity(0.9))
-                    
-                    if product.isChecked {
-                        Text("•")
-                            .foregroundStyle(.primary.opacity(0.6))
-                        
-                        Text("Completed")
-                            .font(.subheadline)
-                            .foregroundStyle(.primary.opacity(0.9))
-                    }
-                }
+                Text(product.quantity.displayString)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
             
             Spacer()
         }
-        .padding(AppTheme.Spacing.md)
         .contentShape(Rectangle())
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(role: .destructive, action: onDelete) {
@@ -242,26 +228,20 @@ private struct ProductRowView: View {
 
 /// Displays when search returns no results
 private struct ProductsNoResultsView: View {
-    
     var body: some View {
-        VStack(spacing: AppTheme.Spacing.lg) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: AppTheme.IconSize.huge))
-                .foregroundStyle(AppTheme.Colors.secondaryText)
+        VStack(spacing: AppTheme.Spacing.sm) {
+            Text("No Results")
+                .font(.subheadline)
+                .fontWeight(AppTheme.FontWeight.semibold)
+                .foregroundStyle(.primary)
             
-            VStack(spacing: AppTheme.Spacing.sm) {
-                Text("No Results")
-                    .font(.title2)
-                    .fontWeight(AppTheme.FontWeight.bold)
-                    .foregroundStyle(AppTheme.Colors.primaryText)
-                
-                Text("No products found")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                    .multilineTextAlignment(.center)
-            }
+            Text("No products found")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
-        .padding(AppTheme.Spacing.xl)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, AppTheme.Spacing.xl)
     }
 }
 

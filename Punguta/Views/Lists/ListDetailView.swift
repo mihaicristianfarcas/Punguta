@@ -58,7 +58,7 @@ struct ListDetailView: View {
     
     /// Number of checked/completed products in this list
     private var completedCount: Int {
-        products.filter { $0.isChecked }.count
+        list.checkedProductIds.count
     }
     
     /// Completion percentage (0.0 to 1.0) for progress bar
@@ -71,71 +71,71 @@ struct ListDetailView: View {
     // MARK: Body
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: AppTheme.Spacing.xl) {
-                // MARK: Header Card Section
-                // Shows list info, stats, and progress bar
+        List {
+            // MARK: Header Card Section
+            Section {
                 ListHeaderCard(
                     list: list,
                     products: products,
                     completedCount: completedCount,
                     progressPercentage: progressPercentage
                 )
-                
-                // MARK: Products Section
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                    // Section header with Add menu
-                    HStack {
-                        Text("Products")
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                        
-                        Spacer()
-                        
-                        // Menu with two options: create new or add existing
-                        Menu {
-                            Button(action: { showingAddProduct = true }) {
-                                Label("Create New Product", systemImage: "plus.circle")
+            }
+            .listRowInsets(EdgeInsets())
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+            
+            // MARK: Products Section
+            Section {
+                if products.isEmpty {
+                    EmptyProductsState()
+                        .listRowInsets(EdgeInsets())
+                        .listRowSeparator(.hidden)
+                } else {
+                    ForEach(products) { product in
+                        InteractiveProductCard(
+                            product: product,
+                            isChecked: list.isProductChecked(product.id),
+                            onToggle: { toggleProduct(product) },
+                            onEdit: { productToEdit = product },
+                            onDelete: {
+                                productToDelete = product
+                                showingDeleteConfirmation = true
                             }
-                            
-                            Button(action: { showingProductPicker = true }) {
-                                Label("Add Existing Product", systemImage: "list.bullet")
-                            }
-                        } label: {
-                            HStack(spacing: AppTheme.Spacing.xs) {
-                                Image(systemName: "plus.circle.fill")
-                                Text("Add")
-                                    .fontWeight(.medium)
-                            }
-                            .font(.subheadline)
-                            .foregroundStyle(.blue)
-                        }
-                    }
-                    .padding(.horizontal, AppTheme.Spacing.md)
-                    
-                    // Product list or empty state
-                    if products.isEmpty {
-                        EmptyProductsState()
-                    } else {
-                        VStack(spacing: AppTheme.Spacing.md) {
-                            ForEach(products) { product in
-                                InteractiveProductCard(
-                                    product: product,
-                                    onToggle: { toggleProduct(product) },
-                                    onEdit: { productToEdit = product },
-                                    onDelete: {
-                                        productToDelete = product
-                                        showingDeleteConfirmation = true
-                                    }
-                                )
-                            }
-                        }
-                        .padding(.horizontal, AppTheme.Spacing.md)
+                        )
+                        .listRowInsets(EdgeInsets(top: AppTheme.Spacing.xs, leading: AppTheme.Spacing.md, bottom: AppTheme.Spacing.xs, trailing: AppTheme.Spacing.md))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
                     }
                 }
+            } header: {
+                HStack {
+                    Text("Products")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    
+                    Spacer()
+                    
+                    Menu {
+                        Button(action: { showingAddProduct = true }) {
+                            Label("Create New", systemImage: "plus")
+                        }
+                        
+                        Button(action: { showingProductPicker = true }) {
+                            Label("Add Existing", systemImage: "list.bullet")
+                        }
+                    } label: {
+                        Text("Add")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.blue)
+                    }
+                }
+                .textCase(nil)
             }
-            .padding(.vertical, AppTheme.Spacing.lg)
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .background(Color(.systemGroupedBackground))
         .navigationTitle(list.name)
         .navigationBarTitleDisplayMode(.inline)
@@ -144,7 +144,12 @@ struct ListDetailView: View {
         .sheet(isPresented: $showingAddProduct) {
             AddEditProductView(
                 viewModel: productViewModel,
-                categories: Category.defaultCategories
+                categories: Category.defaultCategories,
+                onProductCreated: { productId in
+                    // Add the newly created product to this list
+                    list.addProduct(productId)
+                    listViewModel.updateList(list)
+                }
             )
         }
         // Sheet for editing an existing product
@@ -166,7 +171,8 @@ struct ListDetailView: View {
                         listViewModel.updateList(list)
                     }
                 ),
-                availableProducts: productViewModel.products
+                availableProducts: productViewModel.products,
+                productViewModel: productViewModel
             )
         }
         // MARK: Alert
@@ -190,10 +196,10 @@ struct ListDetailView: View {
     
     // MARK: - Helper Methods
     
-    /// Toggles the checked state of a product
-    /// Delegates to ProductViewModel which handles persistence
+    /// Toggles the checked state of a product in this list
     private func toggleProduct(_ product: Product) {
-        productViewModel.toggleProductChecked(product)
+        list.toggleProductChecked(product.id)
+        listViewModel.updateList(list)
     }
     
     /// Removes a product from this list (but doesn't delete the product globally)
@@ -206,144 +212,142 @@ struct ListDetailView: View {
 
 // MARK: - Interactive Product Card
 
-/// Product card with multiple interactive elements
-/// - Checkbox button to toggle completion state
-/// - Tappable product info area to edit
-/// - Explicit edit and delete buttons
-/// - Strikethrough styling for completed items
+/// Minimal product card with checkbox and swipe actions
 private struct InteractiveProductCard: View {
     let product: Product
+    let isChecked: Bool
     let onToggle: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
     
     var body: some View {
         HStack(spacing: AppTheme.Spacing.md) {
-            // MARK: Checkbox Button
-            // Circular button that toggles product completion
+            // Checkbox
             Button(action: onToggle) {
-                ZStack {
-                    Circle()
-                        .fill(product.isChecked ? Color.green : Color.gray.opacity(0.2))
-                        .frame(width: 40, height: 40)
-                    
-                    if product.isChecked {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(.white)
-                    }
-                }
+                Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(isChecked ? .green : .secondary)
             }
             .buttonStyle(.plain)
             
-            // MARK: Product Info (Tappable to Edit)
-            Button(action: onEdit) {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-                    Text(product.name)
-                        .font(.body)
-                        .fontWeight(.medium)
-                        .foregroundStyle(.primary)
-                        .strikethrough(product.isChecked, color: .secondary)
-                    
-                    Text(product.quantity.displayString)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+            // Product Info
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                Text(product.name)
+                    .font(.body)
+                    .fontWeight(AppTheme.FontWeight.semibold)
+                    .foregroundStyle(isChecked ? .secondary : .primary)
+                    .strikethrough(isChecked, color: .secondary)
+                
+                Text(product.quantity.displayString)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
-            .buttonStyle(.plain)
             
             Spacer()
-            
-            // MARK: Action Buttons
-            // Explicit edit and delete buttons
-            HStack(spacing: AppTheme.Spacing.md) {
-                Button(action: onEdit) {
-                    Image(systemName: "pencil.circle.fill")
-                        .font(.title3)
-                        .foregroundStyle(.blue)
-                }
-                .buttonStyle(.plain)
-                
-                Button(action: onDelete) {
-                    Image(systemName: "minus.circle.fill")
-                        .font(.title3)
-                        .foregroundStyle(.red)
-                }
-                .buttonStyle(.plain)
-            }
         }
         .padding(AppTheme.Spacing.md)
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.CornerRadius.md))
-        .shadow(
-            color: AppTheme.Shadow.sm.color,
-            radius: AppTheme.Shadow.sm.radius,
-            x: AppTheme.Shadow.sm.x,
-            y: AppTheme.Shadow.sm.y
-        )
+        .contentShape(Rectangle())
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button(action: onDelete) {
+                Label("Remove", systemImage: "trash")
+            }
+            .tint(.red)
+            
+            Button(action: onEdit) {
+                Label("Edit", systemImage: "pencil")
+            }
+            .tint(.orange)
+        }
     }
 }
 
 // MARK: - Product Picker View
 
 /// Modal sheet for selecting existing products to add to the list
-/// Features:
-/// - Searchable list of all available products
-/// - Multi-select with checkmark indicators
-/// - Real-time filtering as user types
 private struct ProductPickerView: View {
     @Environment(\.dismiss) private var dismiss
     
-    /// Binding to the list's product IDs (updated when selections change)
     @Binding var selectedProductIds: [UUID]
-    
-    /// All products available for selection
     let availableProducts: [Product]
+    let productViewModel: ProductViewModel
     
-    /// Search query text
     @State private var searchText = ""
+    @State private var showingAddProduct = false
     
-    /// Filters products by name based on search text
     private var filteredProducts: [Product] {
         if searchText.isEmpty {
-            return availableProducts
+            return availableProducts.sorted { $0.name < $1.name }
         }
-        return availableProducts.filter {
-            $0.name.localizedCaseInsensitiveContains(searchText)
-        }
+        return availableProducts
+            .filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+            .sorted { $0.name < $1.name }
     }
     
     var body: some View {
         NavigationStack {
             List {
-                ForEach(filteredProducts) { product in
-                    Button(action: { toggleProduct(product) }) {
-                        HStack(spacing: AppTheme.Spacing.md) {
-                            // Checkmark indicator
-                            Image(systemName: selectedProductIds.contains(product.id) ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(selectedProductIds.contains(product.id) ? .blue : .secondary)
-                                .font(.title3)
-                            
-                            // Product info
-                            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-                                Text(product.name)
-                                    .font(.body)
-                                    .foregroundStyle(.primary)
+                if filteredProducts.isEmpty {
+                    Section {
+                        Text("No products found")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, AppTheme.Spacing.lg)
+                    }
+                } else {
+                    ForEach(filteredProducts) { product in
+                        Button(action: { toggleProduct(product) }) {
+                            HStack(spacing: AppTheme.Spacing.md) {
+                                VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                                    Text(product.name)
+                                        .font(.body)
+                                        .foregroundStyle(.primary)
+                                    
+                                    Text(product.quantity.displayString)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
                                 
-                                Text(product.quantity.displayString)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                
+                                if selectedProductIds.contains(product.id) {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(.blue)
+                                        .font(.body.weight(.semibold))
+                                }
                             }
-                            
-                            Spacer()
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
                     }
                 }
             }
+            .listStyle(.insetGrouped)
             .searchable(text: $searchText, prompt: "Search products")
             .navigationTitle("Add Products")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                
+                ToolbarItem(placement: .principal) {
+                    Button {
+                        showingAddProduct = true
+                    } label: {
+                        HStack(spacing: AppTheme.Spacing.xs) {
+                            Image(systemName: "plus.circle.fill")
+                            Text("Create New")
+                        }
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    }
+                }
+                
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         dismiss()
@@ -351,11 +355,19 @@ private struct ProductPickerView: View {
                     .fontWeight(.semibold)
                 }
             }
+            .sheet(isPresented: $showingAddProduct) {
+                AddEditProductView(
+                    viewModel: productViewModel,
+                    categories: Category.defaultCategories,
+                    onProductCreated: { productId in
+                        // Automatically select the newly created product
+                        selectedProductIds.append(productId)
+                    }
+                )
+            }
         }
     }
     
-    /// Toggles product selection on/off
-    /// Adds or removes product ID from the selected list
     private func toggleProduct(_ product: Product) {
         if let index = selectedProductIds.firstIndex(of: product.id) {
             selectedProductIds.remove(at: index)
@@ -369,183 +381,107 @@ private struct ProductPickerView: View {
 
 // MARK: List Header Card
 
-/// Header card displaying list information, statistics, and progress
-/// Shows:
-/// - List name with color-coded icon
-/// - Item count and completion stats
-/// - Animated progress bar
-/// - Last updated timestamp
+/// Minimal header card displaying list progress
 private struct ListHeaderCard: View {
     let list: ShoppingList
     let products: [Product]
     let completedCount: Int
     let progressPercentage: Double
     
-    /// Deterministic color based on list name hash
-    /// Ensures consistent color per list across app sessions
-    private var listColor: Color {
-        let colors: [Color] = [.blue, .purple, .pink, .indigo, .teal, .cyan]
-        let index = abs(list.name.hashValue) % colors.count
-        return colors[index]
-    }
-    
     var body: some View {
         VStack(spacing: AppTheme.Spacing.lg) {
-            // MARK: List Name Header
-            HStack {
-                // Color-coded icon
-                ZStack {
-                    Circle()
-                        .fill(listColor.gradient)
-                        .frame(width: 60, height: 60)
+            // Statistics
+            HStack(spacing: AppTheme.Spacing.xl) {
+                VStack(spacing: AppTheme.Spacing.xs) {
+                    Text("\(products.count)")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.primary)
                     
-                    Image(systemName: "list.bullet.clipboard.fill")
-                        .font(.system(size: 30, weight: .medium))
-                        .foregroundStyle(.white)
+                    Text(products.count == 1 ? "Item" : "Items")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
+                .frame(maxWidth: .infinity)
                 
-                Text(list.name)
-                    .font(.title)
-                    .bold()
-                    .lineLimit(1)
-                    .padding()
+                Divider()
+                    .frame(height: 40)
+                
+                VStack(spacing: AppTheme.Spacing.xs) {
+                    Text("\(completedCount)")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.green)
+                    
+                    Text("Completed")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
             }
             
-            // MARK: Statistics and Progress
-            VStack(spacing: AppTheme.Spacing.md) {
-                // Stat cards showing totals
-                HStack(spacing: AppTheme.Spacing.xl) {
-                    StatCard(
-                        icon: "cart.fill",
-                        value: "\(products.count)",
-                        label: products.count == 1 ? "Item" : "Items",
-                        color: .blue
-                    )
-                    
-                    StatCard(
-                        icon: "checkmark.circle.fill",
-                        value: "\(completedCount)",
-                        label: "Completed",
-                        color: .green
-                    )
-                }
-                
-                // MARK: Progress Bar
-                // Only shown when list has products
-                if !products.isEmpty {
-                    VStack(spacing: AppTheme.Spacing.sm) {
-                        HStack {
-                            Text("Progress")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundStyle(.secondary)
-                            
-                            Spacer()
-                            
-                            Text("\(Int(progressPercentage * 100))%")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(listColor)
-                        }
+            // Progress Bar
+            if !products.isEmpty {
+                VStack(spacing: AppTheme.Spacing.sm) {
+                    HStack {
+                        Text("Progress")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.secondary)
                         
-                        // Animated progress bar
-                        GeometryReader { geometry in
-                            ZStack(alignment: .leading) {
-                                // Background track
-                                RoundedRectangle(cornerRadius: AppTheme.CornerRadius.sm)
-                                    .fill(Color.gray.opacity(0.2))
-                                    .frame(height: 12)
-                                
-                                // Filled progress
-                                RoundedRectangle(cornerRadius: AppTheme.CornerRadius.sm)
-                                    .fill(listColor.gradient)
-                                    .frame(width: geometry.size.width * progressPercentage, height: 12)
-                                    .animation(.spring(response: 0.3), value: progressPercentage)
-                            }
-                        }
-                        .frame(height: 12)
+                        Spacer()
+                        
+                        Text("\(Int(progressPercentage * 100))%")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.primary)
                     }
-                    .padding(.horizontal, AppTheme.Spacing.xs)
+                    
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.sm)
+                                .fill(Color.gray.opacity(0.2))
+                                .frame(height: 8)
+                            
+                            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.sm)
+                                .fill(Color.green)
+                                .frame(width: geometry.size.width * progressPercentage, height: 8)
+                                .animation(.spring(response: 0.3), value: progressPercentage)
+                        }
+                    }
+                    .frame(height: 8)
                 }
-                
-                // MARK: Last Updated Timestamp
-                Text("Updated \(list.updatedAt, style: .relative) ago")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
             }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, AppTheme.Spacing.xl)
-        .padding(.horizontal, AppTheme.Spacing.lg)
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.CornerRadius.lg))
-        .shadow(
-            color: AppTheme.Shadow.md.color,
-            radius: AppTheme.Shadow.md.radius,
-            x: AppTheme.Shadow.md.x,
-            y: AppTheme.Shadow.md.y
-        )
-        .padding(.horizontal, AppTheme.Spacing.md)
-    }
-}
-
-// MARK: Stat Card
-
-/// Reusable stat card component
-/// Displays an icon, numeric value, and label in a colored card
-/// Used for showing metrics like item count, completion count, etc.
-private struct StatCard: View {
-    let icon: String
-    let value: String
-    let label: String
-    let color: Color
-    
-    var body: some View {
-        VStack(spacing: AppTheme.Spacing.sm) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundStyle(color)
             
-            Text(value)
-                .font(.title)
-                .fontWeight(.bold)
-                .foregroundStyle(.primary)
-            
-            Text(label)
+            Text("Updated \(list.updatedAt, style: .relative) ago")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, AppTheme.Spacing.md)
-        .background(color.opacity(0.1))
+        .padding(AppTheme.Spacing.lg)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.CornerRadius.md))
+        .padding(.horizontal, AppTheme.Spacing.md)
     }
 }
 
 // MARK: Empty Products State
 
 /// Empty state shown when list has no products
-/// Displays helpful message with icon and instructions
 private struct EmptyProductsState: View {
     var body: some View {
         VStack(spacing: AppTheme.Spacing.md) {
-            Image(systemName: "cart.badge.plus")
-                .font(.system(size: 50))
+            Text("No products yet")
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
             
-            VStack(spacing: AppTheme.Spacing.sm) {
-                Text("No products yet")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                
-                Text("Tap 'Add' to add products to this list")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
+            Text("Tap 'Add' to add products to this list")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 50)
+        .padding(.vertical, AppTheme.Spacing.xl)
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.CornerRadius.md))
         .padding(.horizontal, AppTheme.Spacing.md)

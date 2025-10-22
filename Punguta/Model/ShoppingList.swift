@@ -29,6 +29,10 @@ struct ShoppingList: Identifiable, Codable, Hashable {
     /// References products in the global products array
     var productIds: [UUID]
     
+    /// Set of checked product IDs for this specific list
+    /// Tracks which products have been checked off in this list
+    var checkedProductIds: Set<UUID>
+    
     /// When the list was first created
     let createdAt: Date
     
@@ -41,12 +45,14 @@ struct ShoppingList: Identifiable, Codable, Hashable {
         id: UUID = UUID(),
         name: String,
         productIds: [UUID] = [],
+        checkedProductIds: Set<UUID> = [],
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
         self.id = id
         self.name = name
         self.productIds = productIds
+        self.checkedProductIds = checkedProductIds
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -66,6 +72,25 @@ struct ShoppingList: Identifiable, Codable, Hashable {
     /// - Note: This doesn't delete the product itself, just removes it from this list
     mutating func removeProduct(_ productId: UUID) {
         productIds.removeAll { $0 == productId }
+        checkedProductIds.remove(productId)
         updatedAt = Date()
+    }
+    
+    /// Toggle the checked state of a product in this list
+    /// - Parameter productId: The ID of the product to toggle
+    mutating func toggleProductChecked(_ productId: UUID) {
+        if checkedProductIds.contains(productId) {
+            checkedProductIds.remove(productId)
+        } else {
+            checkedProductIds.insert(productId)
+        }
+        updatedAt = Date()
+    }
+    
+    /// Check if a product is checked in this list
+    /// - Parameter productId: The ID of the product to check
+    /// - Returns: True if the product is checked in this list
+    func isProductChecked(_ productId: UUID) -> Bool {
+        checkedProductIds.contains(productId)
     }
 }

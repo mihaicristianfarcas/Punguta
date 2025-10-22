@@ -71,7 +71,7 @@ struct ListsView: View {
                 let products = list.productIds.compactMap { id in
                     productViewModel.products.first { $0.id == id }
                 }
-                let completedCount = products.filter { $0.isChecked }.count
+                let completedCount = list.checkedProductIds.count
                 
                 switch status {
                 case .active:
@@ -287,7 +287,7 @@ struct ListsView: View {
         
         /// Number of completed products
         private var completedCount: Int {
-            products.filter { $0.isChecked }.count
+            list.checkedProductIds.count
         }
         
         /// Color for the list icon
@@ -303,13 +303,21 @@ struct ListsView: View {
             HStack(spacing: AppTheme.Spacing.md) {
                 // List details
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-                    // List name
-                    Text(list.name)
-                        .font(.title3)
-                        .fontWeight(AppTheme.FontWeight.semibold)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
                     
+                    HStack {
+                        // List name
+                        Text(list.name)
+                            .font(.title3)
+                            .fontWeight(AppTheme.FontWeight.semibold)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                     
+                        if (!products.isEmpty && completedCount == products.count) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(.green)
+                        }
+                    }
                     HStack(spacing: AppTheme.Spacing.md) {
                         // Item count
                         Text("\(products.count) \(products.count == 1 ? "item" : "items")")

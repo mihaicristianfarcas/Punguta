@@ -64,10 +64,6 @@ struct Product: Identifiable, Codable, Hashable {
     /// The quantity needed (amount + unit)
     var quantity: ProductQuantity
     
-    /// Shared checked state across all lists
-    /// When checked in one list, it's checked everywhere
-    var isChecked: Bool
-    
     /// When the product was first created
     let createdAt: Date
     
@@ -81,7 +77,6 @@ struct Product: Identifiable, Codable, Hashable {
         name: String,
         categoryId: UUID,
         quantity: ProductQuantity,
-        isChecked: Bool = false,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -89,18 +84,11 @@ struct Product: Identifiable, Codable, Hashable {
         self.name = name
         self.categoryId = categoryId
         self.quantity = quantity
-        self.isChecked = isChecked
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
     
     // MARK: Mutations
-    
-    /// Toggle the checked state and update timestamp
-    mutating func toggleChecked() {
-        isChecked.toggle()
-        updatedAt = Date()
-    }
     
     /// Update the product quantity and timestamp
     /// - Parameter newQuantity: The new quantity to set

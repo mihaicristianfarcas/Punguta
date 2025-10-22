@@ -111,8 +111,7 @@ struct StoreProductView {
     
     /// Count of checked (purchased) products
     var checkedProductCount: Int {
-        productsByCategory.reduce(0) { sum, group in
-            sum + group.products.filter { $0.isChecked }.count
-        }
+        // TODO: Implement individual checked product counting per list, not per global product
+        return 0
     }
 }

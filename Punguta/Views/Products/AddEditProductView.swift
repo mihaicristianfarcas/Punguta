@@ -34,6 +34,10 @@ struct AddEditProductView: View {
     /// Available categories for selection
     let categories: [Category]
     
+    /// Optional completion handler called after creating a new product
+    /// Passes the newly created product's ID
+    var onProductCreated: ((UUID) -> Void)?
+    
     // MARK: Form State
     
     /// Product name input
@@ -71,10 +75,11 @@ struct AddEditProductView: View {
     
     // MARK: Initializer
     
-    init(viewModel: ProductViewModel, categories: [Category], productToEdit: Product? = nil) {
+    init(viewModel: ProductViewModel, categories: [Category], productToEdit: Product? = nil, onProductCreated: ((UUID) -> Void)? = nil) {
         self.viewModel = viewModel
         self.productToEdit = productToEdit
         self.categories = categories
+        self.onProductCreated = onProductCreated
         
         // Initialize state from existing product or defaults
         if let product = productToEdit {
@@ -95,33 +100,40 @@ struct AddEditProductView: View {
     var body: some View {
         NavigationStack {
             Form {
-                // MARK: Product Name Section
-                // Main product name input with auto-categorization trigger
-                Section("Product Details") {
+                // Product Name
+                Section {
                     TextField("Product Name", text: $name)
                         .autocorrectionDisabled()
                         .onChange(of: name) { oldValue, newValue in
                             autoSuggestCategory()
                         }
+                } header: {
+                    Text("Name")
                 }
                 
-                // MARK: Category Selection Section
-                Section("Category") {
+                // Category
+                Section {
                     Picker("Category", selection: $selectedCategoryId) {
                         ForEach(categories) { category in
-                            Text(category.name).tag(category.id)
+                            HStack {
+                                Image(systemName: category.icon)
+                                Text(category.name)
+                            }
+                            .tag(category.id)
                         }
                     }
-                    .pickerStyle(.menu)
+                    .pickerStyle(.navigationLink)
+                } header: {
+                    Text("Category")
                 }
                 
-                // MARK: Quantity Section
-                // Amount input with unit selector (e.g., "2.5 kg")
-                Section("Quantity") {
-                    HStack {
+                // Quantity
+                Section {
+                    HStack(spacing: AppTheme.Spacing.md) {
                         TextField("Amount", text: $amount)
                             .keyboardType(.decimalPad)
-                            .frame(maxWidth: 100)
+                        
+                        Divider()
                         
                         Picker("Unit", selection: $selectedUnit) {
                             ForEach(commonUnits, id: \.self) { unit in
@@ -129,22 +141,27 @@ struct AddEditProductView: View {
                             }
                         }
                         .pickerStyle(.menu)
-                        .frame(maxWidth: 120)
+                        .labelsHidden()
+                    }
+                } header: {
+                    Text("Quantity")
+                } footer: {
+                    if productToEdit == nil && !name.isEmpty {
+                        Text("Tip: Category and unit are automatically suggested based on product name")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
-                
             }
             .navigationTitle(productToEdit == nil ? "New Product" : "Edit Product")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // Cancel button
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         dismiss()
                     }
                 }
                 
-                // Save/Create button (disabled when form is invalid)
                 ToolbarItem(placement: .confirmationAction) {
                     Button(productToEdit == nil ? "Create" : "Save") {
                         saveProduct()
@@ -153,7 +170,6 @@ struct AddEditProductView: View {
                     .disabled(!isFormValid)
                 }
             }
-            // Show validation errors in an alert
             .alert("Validation Error", isPresented: $showingValidationAlert) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -217,11 +233,14 @@ struct AddEditProductView: View {
             viewModel.updateProduct(updatedProduct)
         } else {
             // Create new product
-            viewModel.createProduct(
+            let productId = viewModel.createProduct(
                 name: trimmedName,
                 categoryId: selectedCategoryId,
                 quantity: quantity
             )
+            
+            // Call completion handler with the new product's ID
+            onProductCreated?(productId)
         }
         
         // Close the sheet

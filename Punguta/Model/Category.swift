@@ -50,7 +50,7 @@ extension Category {
         Category(
             name: "Dairy",
             keywords: ["milk", "cheese", "butter", "yogurt", "cream", "sour cream", "cottage cheese", "mozzarella", "cheddar", "parmesan"],
-            defaultUnit: "L"
+            defaultUnit: "kg"
         ),
         Category(
             name: "Produce",
