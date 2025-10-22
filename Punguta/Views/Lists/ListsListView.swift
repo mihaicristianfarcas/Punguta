@@ -98,33 +98,12 @@ struct ListsView: View {
                 List {
                     // Status filter pills
                     Section {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: AppTheme.Spacing.sm) {
-                                FilterPillView(
-                                    title: "All",
-                                    isSelected: selectedStatusFilter == nil,
-                                    action: { selectedStatusFilter = nil }
-                                )
-                                
-                                ForEach(CompletionStatus.allCases, id: \.self) { status in
-                                        FilterPillView(
-                                            title: status.rawValue,
-                                            icon: status == .completed ? "checkmark.circle.fill" : "circle.dashed",
-                                            color: status == .completed ? AppTheme.Colors.success : AppTheme.Colors.primaryAction,
-                                            isSelected: selectedStatusFilter == status,
-                                            action: {
-                                                selectedStatusFilter = selectedStatusFilter == status ? nil : status
-                                            }
-                                        )
-                                    }
-                                }
-                                .padding(AppTheme.Spacing.sm)
-                            }
-                        }
-                        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-
+                        StatusFilterPills(selectedStatusFilter: $selectedStatusFilter)
+                    }
+                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    
                     
                     // Lists or empty states
                     if filteredLists.isEmpty {
@@ -140,9 +119,10 @@ struct ListsView: View {
                             }
                         } else {
                             Section {
-                                ListsNoResultsView(searchText: searchText)
+                                ListsNoResultsView()
                                     .frame(maxWidth: .infinity)
                                     .listRowInsets(EdgeInsets())
+                                    .listRowBackground(Color.clear)
                             }
                         }
                     } else {
@@ -224,11 +204,41 @@ struct ListsView: View {
         }
     }
     
+    // MARK: - Status Filter Pills
+    
+    private struct StatusFilterPills: View {
+        @Binding var selectedStatusFilter: CompletionStatus?
+        
+        var body: some View {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: AppTheme.Spacing.sm) {
+                    FilterPillView(
+                        title: "All",
+                        isSelected: selectedStatusFilter == nil,
+                        action: { selectedStatusFilter = nil }
+                    )
+                    
+                    ForEach(CompletionStatus.allCases, id: \.self) { status in
+                        FilterPillView(
+                            title: status.rawValue,
+                            icon: status == .completed ? "checkmark.circle.fill" : "circle.dashed",
+                            color: status == .completed ? AppTheme.Colors.success : AppTheme.Colors.primaryAction,
+                            isSelected: selectedStatusFilter == status,
+                            action: {
+                                selectedStatusFilter = selectedStatusFilter == status ? nil : status
+                            }
+                        )
+                    }
+                }
+                .padding(AppTheme.Spacing.sm)
+            }
+        }
+    }
+    
     // MARK: - No Results View
     
     /// Displays when search returns no results
     private struct ListsNoResultsView: View {
-        let searchText: String
         
         var body: some View {
             VStack(spacing: AppTheme.Spacing.lg) {
@@ -345,3 +355,4 @@ struct ListsView: View {
     ListsView(productViewModel: ProductViewModel())
         .environmentObject(ListViewModel())
 }
+

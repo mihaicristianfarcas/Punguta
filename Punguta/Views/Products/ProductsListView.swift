@@ -88,35 +88,7 @@ struct ProductsListView: View {
                     .ignoresSafeArea()
                 
                 List {
-                    // Category filter pills
-                    Section {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: AppTheme.Spacing.sm) {
-                                FilterPillView(
-                                    title: "All",
-                                    isSelected: selectedCategory == nil,
-                                    action: { selectedCategory = nil }
-                                )
-                                
-                                ForEach(categories) { category in
-                                    FilterPillView(
-                                        title: category.name,
-                                        icon: category.icon,
-                                        color: category.visualColor,
-                                        isSelected: selectedCategory == category.id,
-                                        action: { 
-                                            selectedCategory = selectedCategory == category.id ? nil : category.id
-                                        }
-                                        )
-                                    }
-                                }
-                                .padding(AppTheme.Spacing.sm)
-                            }
-                        }
-                        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-
+                    CategoryFilterSection(categories: categories, selectedCategory: $selectedCategory)
                     
                     // Products or empty states
                     if filteredProducts.isEmpty {
@@ -132,7 +104,7 @@ struct ProductsListView: View {
                             }
                         } else {
                             Section {
-                                ProductsNoResultsView(searchText: searchText)
+                                ProductsNoResultsView()
                                     .frame(maxWidth: .infinity)
                                     .listRowInsets(EdgeInsets())
                             }
@@ -278,7 +250,6 @@ private struct ProductRowView: View {
 
 /// Displays when search returns no results
 private struct ProductsNoResultsView: View {
-    let searchText: String
     
     var body: some View {
         VStack(spacing: AppTheme.Spacing.lg) {
@@ -299,6 +270,41 @@ private struct ProductsNoResultsView: View {
             }
         }
         .padding(AppTheme.Spacing.xl)
+    }
+}
+
+// MARK: - Category Filter Section
+private struct CategoryFilterSection: View {
+    let categories: [Category]
+    @Binding var selectedCategory: UUID?
+
+    var body: some View {
+        Section {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: AppTheme.Spacing.sm) {
+                    FilterPillView(
+                        title: "All",
+                        isSelected: selectedCategory == nil,
+                        action: { selectedCategory = nil }
+                    )
+                    ForEach(categories) { category in
+                        FilterPillView(
+                            title: category.name,
+                            icon: category.icon,
+                            color: category.visualColor,
+                            isSelected: selectedCategory == category.id,
+                            action: {
+                                selectedCategory = (selectedCategory == category.id) ? nil : category.id
+                            }
+                        )
+                    }
+                }
+                .padding(AppTheme.Spacing.sm)
+            }
+        }
+        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
     }
 }
 
