@@ -10,11 +10,11 @@ import MapKit
 
 // MARK: - Store Detail View
 
-/// Detailed view of a store with all its information
+/// Detailed view of a store with all its products organized by category
 /// Features:
 /// - Store header with icon, name, and type badge
-/// - Location information (address and coordinates)
-/// - Categories section showing store's category order
+/// - Products organized by store's category order
+/// - Interactive product cards with checkboxes
 /// - Empty states for missing data
 /// - Color-coded UI based on store type
 struct StoreDetailView: View {
@@ -27,28 +27,156 @@ struct StoreDetailView: View {
     /// View model for accessing categories data
     let viewModel: StoreViewModel
     
+    /// View model for accessing products data
+    @ObservedObject var productViewModel: ProductViewModel
+    
+    /// View model for accessing shopping lists data
+    @ObservedObject var listViewModel: ListViewModel
+    
+    // MARK: Computed Properties
+    
+    /// Categories in the store's custom ordering
+    private var orderedCategories: [Category] {
+        store.categoryOrder.compactMap { categoryId in
+            viewModel.categories.first { $0.id == categoryId }
+        }
+    }
+    
+    /// Shopping lists with products available at this store, organized by category
+    /// Structure: [(list, [(category, [products])])]
+    private var listsWithStoreProducts: [(list: ShoppingList, categorizedProducts: [(category: Category, products: [Product])])] {
+        listViewModel.shoppingLists.compactMap { list in
+            // Get products from this list
+            let listProducts = list.productIds.compactMap { productId in
+                productViewModel.products.first { $0.id == productId }
+            }
+            
+            // Filter to only products available at this store (matching store's categories)
+            let storeProducts = listProducts.filter { product in
+                store.categoryOrder.contains(product.categoryId)
+            }
+            
+            guard !storeProducts.isEmpty else { return nil }
+            
+            // Group products by category following store's category order
+            let categorizedProducts = orderedCategories.compactMap { category -> (Category, [Product])? in
+                let productsInCategory = storeProducts.filter { $0.categoryId == category.id }
+                guard !productsInCategory.isEmpty else { return nil }
+                return (category, productsInCategory.sorted { $0.name < $1.name })
+            }
+            
+            guard !categorizedProducts.isEmpty else { return nil }
+            
+            return (list, categorizedProducts)
+        }
+    }
+    
     // MARK: Body
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: AppTheme.Spacing.xl) {
-                // MARK: Store Header Card
-                // Displays store icon, name, and type
+        List {
+            // MARK: Store Header Card
+            Section {
                 StoreHeaderCard(store: store)
-                
-                // MARK: Location Section
-                // Shows address and coordinates with map icons
-                LocationSection(store: store)
-                
-                // MARK: Categories Section
-                // Grid of categories in the store's custom order
-                CategoriesSection(store: store, viewModel: viewModel)
             }
-            .padding(.vertical, AppTheme.Spacing.lg)
+            .listRowInsets(EdgeInsets())
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+            
+            // MARK: Shopping Lists by Category
+            if listsWithStoreProducts.isEmpty {
+                Section {
+                    EmptyListsState()
+                        .listRowInsets(EdgeInsets())
+                        .listRowSeparator(.hidden)
+                }
+            } else {
+                ForEach(listsWithStoreProducts, id: \.list.id) { listItem in
+                    Section {
+                        // Products grouped by category
+                        ForEach(listItem.categorizedProducts, id: \.category.id) { categoryItem in
+                            // Category header
+                            HStack(spacing: AppTheme.Spacing.sm) {
+                                Image(systemName: categoryItem.category.icon)
+                                    .font(.subheadline)
+                                    .foregroundStyle(categoryItem.category.visualColor)
+                                Text(categoryItem.category.name)
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                Spacer()
+                                Text("(\(categoryItem.products.count))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, AppTheme.Spacing.md)
+                            .padding(.vertical, AppTheme.Spacing.xs)
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                            
+                            // Products in this category
+                            ForEach(categoryItem.products) { product in
+                                InteractiveProductCard(
+                                    product: product,
+                                    list: listItem.list,
+                                    listViewModel: listViewModel
+                                )
+                                .listRowInsets(EdgeInsets(top: AppTheme.Spacing.xs, leading: AppTheme.Spacing.md, bottom: AppTheme.Spacing.xs, trailing: AppTheme.Spacing.md))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                            }
+                        }
+                    } header: {
+                        HStack {
+                            Text(listItem.list.name)
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+                            
+                            Spacer()
+                            
+                            // Progress and actions
+                            let completedCount = listItem.categorizedProducts.flatMap { $0.products }.filter { listItem.list.isProductChecked($0.id) }.count
+                            let totalCount = listItem.categorizedProducts.flatMap { $0.products }.count
+                            
+                            HStack(spacing: AppTheme.Spacing.md) {
+                                // Uncheck All Button
+                                if completedCount > 0 {
+                                    Button(action: { clearCheckedItems(for: listItem.list) }) {
+                                        Text("Uncheck All")
+                                            .font(.caption)
+                                            .fontWeight(.medium)
+                                            .foregroundStyle(.red)
+                                    }
+                                }
+                                
+                                // Progress indicator
+                                Text("\(completedCount)/\(totalCount)")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(completedCount == totalCount ? .green : .secondary)
+                            }
+                        }
+                        .textCase(nil)
+                    }
+                }
+            }
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .background(Color(.systemGroupedBackground))
         .navigationTitle(store.name)
         .navigationBarTitleDisplayMode(.inline)
+    }
+    
+    // MARK: - Helper Methods
+    
+    /// Clears all checked items from the specified list
+    private func clearCheckedItems(for list: ShoppingList) {
+        guard var currentList = listViewModel.shoppingLists.first(where: { $0.id == list.id }) else {
+            return
+        }
+        currentList.checkedProductIds.removeAll()
+        listViewModel.updateList(currentList)
     }
 }
 
@@ -188,118 +316,81 @@ private struct LocationSection: View {
     }
 }
 
-// MARK: - Categories Section
+// MARK: - Interactive Product Card
 
-/// Displays store's categories in their custom order
-/// Shows a 2-column grid of category cards with count badge
-private struct CategoriesSection: View {
-    let store: Store
-    let viewModel: StoreViewModel
+/// Product card with checkbox functionality for store shopping lists
+/// Reuses the same design as ListDetailView but adapted for store context
+private struct InteractiveProductCard: View {
+    let product: Product
+    let list: ShoppingList
+    @ObservedObject var listViewModel: ListViewModel
     
-    /// Categories in the store's custom ordering
-    /// Resolves category IDs to full Category objects
-    private var orderedCategories: [Category] {
-        store.categoryOrder.compactMap { categoryId in
-            viewModel.categories.first { $0.id == categoryId }
+    private var isChecked: Bool {
+        // Get the latest list state from view model
+        guard let currentList = listViewModel.shoppingLists.first(where: { $0.id == list.id }) else {
+            return false
         }
+        return currentList.isProductChecked(product.id)
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-            // Section header with count badge
-            HStack {
-                Text("Categories")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
+        HStack(spacing: AppTheme.Spacing.md) {
+            // Checkbox
+            Button(action: toggleProduct) {
+                Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(isChecked ? .green : .secondary)
+            }
+            .buttonStyle(.plain)
+            
+            // Product Info
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                Text(product.name)
+                    .font(.body)
+                    .fontWeight(AppTheme.FontWeight.semibold)
+                    .foregroundStyle(isChecked ? .secondary : .primary)
+                    .strikethrough(isChecked, color: .secondary)
                 
-                Spacer()
-                
-                // Count badge
-                Text("\(orderedCategories.count)")
+                Text(product.quantity.displayString)
                     .font(.subheadline)
-                    .fontWeight(.semibold)
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, AppTheme.Spacing.sm)
-                    .padding(.vertical, AppTheme.Spacing.xs)
-                    .background(Color(.systemGray5))
-                    .clipShape(Capsule())
-            }
-            .padding(.horizontal, AppTheme.Spacing.md)
-            
-            // Grid of categories or empty state
-            if orderedCategories.isEmpty {
-                EmptyCategoriesState()
-            } else {
-                LazyVGrid(columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
-                ], spacing: AppTheme.Spacing.md) {
-                    ForEach(orderedCategories) { category in
-                        CategoryCard(category: category)
-                    }
-                }
-                .padding(.horizontal, AppTheme.Spacing.md)
-            }
-        }
-    }
-}
-
-// MARK: - Category Card
-
-/// Individual category card showing icon and name
-/// Color-coded based on category color
-private struct CategoryCard: View {
-    let category: Category
-    
-    var body: some View {
-        VStack(spacing: AppTheme.Spacing.sm) {
-            // Category icon with colored background
-            ZStack {
-                Circle()
-                    .fill(category.visualColor.gradient)
-                    .frame(width: 50, height: 50)
-                
-                Image(systemName: category.icon)
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(.white)
             }
             
-            // Category name
-            Text(category.name)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundStyle(.primary)
-                .lineLimit(1)
+            Spacer()
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, AppTheme.Spacing.md)
+        .padding(AppTheme.Spacing.md)
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.CornerRadius.md))
-        .shadow(
-            color: AppTheme.Shadow.sm.color,
-            radius: AppTheme.Shadow.sm.radius,
-            x: AppTheme.Shadow.sm.x,
-            y: AppTheme.Shadow.sm.y
-        )
+        .contentShape(Rectangle())
+    }
+    
+    private func toggleProduct() {
+        // Get mutable copy of the current list
+        guard var currentList = listViewModel.shoppingLists.first(where: { $0.id == list.id }) else {
+            return
+        }
+        currentList.toggleProductChecked(product.id)
+        listViewModel.updateList(currentList)
     }
 }
 
-// MARK: - Empty Categories State
+// MARK: - Empty Lists State
 
-/// Empty state shown when store has no categories
-private struct EmptyCategoriesState: View {
+/// Empty state shown when store has no shopping lists with matching products
+private struct EmptyListsState: View {
     var body: some View {
         VStack(spacing: AppTheme.Spacing.md) {
-            Image(systemName: "tag.slash")
-                .font(.system(size: 40))
-                .foregroundStyle(.secondary)
-            
-            Text("No categories")
+            Text("No shopping lists")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+            
+            Text("Shopping lists with products available at this store will appear here")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
+        .padding(.vertical, AppTheme.Spacing.xl)
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.CornerRadius.md))
         .padding(.horizontal, AppTheme.Spacing.md)
@@ -308,7 +399,17 @@ private struct EmptyCategoriesState: View {
 
 // MARK: - Preview
 #Preview {
-    let viewModel = StoreViewModel()
-    let store = viewModel.stores.first!
-    return StoreDetailView(store: store, viewModel: viewModel)
+    let storeViewModel = StoreViewModel()
+    let productViewModel = ProductViewModel()
+    let listViewModel = ListViewModel()
+    listViewModel.initializeSampleLists(with: productViewModel.products)
+    let store = storeViewModel.stores.first!
+    return NavigationStack {
+        StoreDetailView(
+            store: store,
+            viewModel: storeViewModel,
+            productViewModel: productViewModel,
+            listViewModel: listViewModel
+        )
+    }
 }

@@ -34,7 +34,7 @@ struct ContentView: View {
     var body: some View {
         TabView {
             // MARK: Stores Tab
-            StoresListView()
+            StoresListView(productViewModel: productViewModel, listViewModel: listViewModel)
                 .tabItem {
                     Label("Stores", systemImage: "storefront")
                 }

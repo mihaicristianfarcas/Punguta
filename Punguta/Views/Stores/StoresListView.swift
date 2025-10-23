@@ -24,6 +24,12 @@ struct StoresListView: View {
     /// View model managing stores
     @StateObject private var viewModel = StoreViewModel()
     
+    /// View model managing products
+    @ObservedObject var productViewModel: ProductViewModel
+    
+    /// View model managing shopping lists
+    @ObservedObject var listViewModel: ListViewModel
+    
     /// Controls add store sheet visibility
     @State private var showingAddStore = false
     
@@ -153,7 +159,7 @@ struct StoresListView: View {
                             if let storesOfType = storesByType[storeType], !storesOfType.isEmpty {
                                 Section {
                                     ForEach(storesOfType) { store in
-                                        NavigationLink(destination: StoreDetailView(store: store, viewModel: viewModel)) {
+                                        NavigationLink(destination: StoreDetailView(store: store, viewModel: viewModel, productViewModel: productViewModel, listViewModel: listViewModel)) {
                                             StoreRowView(
                                                 store: store,
                                                 viewModel: viewModel,
@@ -338,6 +344,6 @@ struct StoresListView: View {
 // MARK: - Preview
 
 #Preview {
-    StoresListView()
+    StoresListView(productViewModel: ProductViewModel(), listViewModel: ListViewModel())
 }
 
