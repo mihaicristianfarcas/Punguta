@@ -153,6 +153,7 @@ struct AddEditStoreView: View {
                             }
                         }
                         .onMove(perform: moveCategories)
+                        .onDelete(perform: deleteCategories)
                     }
                     
                     Button("Add Category") {
@@ -226,6 +227,14 @@ struct AddEditStoreView: View {
     /// Maintains the custom category order that will be saved to the store
     private func moveCategories(from source: IndexSet, to destination: Int) {
         selectedCategories.move(fromOffsets: source, toOffset: destination)
+    }
+    
+    /// Deletes categories from the selected list
+    /// Can be triggered by swipe action or delete button
+    private func deleteCategories(at offsets: IndexSet) {
+        withAnimation(.spring(response: 0.3)) {
+            selectedCategories.remove(atOffsets: offsets)
+        }
     }
     
     /// Saves the store (creating new or updating existing) and dismisses the view
