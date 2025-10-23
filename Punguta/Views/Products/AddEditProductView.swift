@@ -181,14 +181,12 @@ struct AddEditProductView: View {
     // MARK: - Helper Methods
     
     /// Automatically suggests a category and default unit based on product name
-    /// Only runs for new products (not when editing existing products)
     /// Uses the ViewModel's smart categorization algorithm
+    /// Continues to work as user types
     private func autoSuggestCategory() {
-        // Skip auto-suggestion when editing existing products
-        guard productToEdit == nil else { return }
-        
         // Use ViewModel to suggest category based on product name
         if let suggestedCategoryId = viewModel.suggestCategory(for: name, categories: categories) {
+            // Apply the auto-suggestion
             selectedCategoryId = suggestedCategoryId
             
             // Also auto-suggest the category's default unit if available

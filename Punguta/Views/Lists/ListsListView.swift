@@ -130,7 +130,7 @@ struct ListsView: View {
                         Section {
                             ForEach(filteredLists) { list in
                                 NavigationLink(destination: ListDetailView(
-                                    list: list,
+                                    listId: list.id,
                                     productViewModel: productViewModel,
                                     listViewModel: viewModel
                                 )) {

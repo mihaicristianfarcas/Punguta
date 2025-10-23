@@ -124,28 +124,47 @@ class ProductViewModel: ObservableObject {
     
     /// Suggest a category for a product based on its name
     ///
-    /// **Algorithm**:
+    /// **Smart Matching Algorithm**:
     /// 1. Convert product name to lowercase
-    /// 2. Check each category's keywords
-    /// 3. Return first category with a matching keyword
+    /// 2. Find all categories with matching keywords
+    /// 3. Prioritize the longest/most specific keyword match
+    /// 4. This ensures "hammer" matches "hammer" (Tools) not "ham" (Meat)
     ///
     /// - Parameters:
     ///   - productName: Name of the product
     ///   - categories: Available categories to search
     /// - Returns: Category ID if match found, nil otherwise
     func suggestCategory(for productName: String, categories: [Category]) -> UUID? {
-        let lowercaseName = productName.lowercased()
+        let lowercaseName = productName.lowercased().trimmingCharacters(in: .whitespaces)
         
-        // Find best matching category by keyword
+        // Return nil for empty names
+        guard !lowercaseName.isEmpty else {
+            return nil
+        }
+        
+        // Find all matching categories with their best matching keyword length
+        var matches: [(category: Category, keywordLength: Int)] = []
+        
         for category in categories {
             for keyword in category.keywords {
                 if lowercaseName.contains(keyword) {
-                    return category.id
+                    // Keep track of the longest keyword that matches for this category
+                    if let existingMatch = matches.first(where: { $0.category.id == category.id }) {
+                        // Update if this keyword is longer (more specific)
+                        if keyword.count > existingMatch.keywordLength {
+                            matches.removeAll { $0.category.id == category.id }
+                            matches.append((category, keyword.count))
+                        }
+                    } else {
+                        matches.append((category, keyword.count))
+                    }
                 }
             }
         }
         
-        return nil
+        // Return the category with the longest matching keyword (most specific match)
+        let bestMatch = matches.max { $0.keywordLength < $1.keywordLength }
+        return bestMatch?.category.id
     }
     
     // MARK: - Data Persistence

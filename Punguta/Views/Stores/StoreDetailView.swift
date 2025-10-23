@@ -96,29 +96,19 @@ struct StoreDetailView: View {
                         // Products grouped by category
                         ForEach(listItem.categorizedProducts, id: \.category.id) { categoryItem in
                             // Category header
-                            HStack(spacing: AppTheme.Spacing.sm) {
-                                Image(systemName: categoryItem.category.icon)
-                                    .font(.subheadline)
-                                    .foregroundStyle(categoryItem.category.visualColor)
-                                Text(categoryItem.category.name)
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                Spacer()
-                                Text("(\(categoryItem.products.count))")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(.horizontal, AppTheme.Spacing.md)
-                            .padding(.vertical, AppTheme.Spacing.xs)
+                            CategorySubheader(
+                                category: categoryItem.category,
+                                itemCount: categoryItem.products.count
+                            )
                             .listRowInsets(EdgeInsets())
                             .listRowSeparator(.hidden)
                             .listRowBackground(Color.clear)
                             
                             // Products in this category
                             ForEach(categoryItem.products) { product in
-                                InteractiveProductCard(
+                                InteractiveProductCardManaged(
                                     product: product,
-                                    list: listItem.list,
+                                    listId: listItem.list.id,
                                     listViewModel: listViewModel
                                 )
                                 .listRowInsets(EdgeInsets(top: AppTheme.Spacing.xs, leading: AppTheme.Spacing.md, bottom: AppTheme.Spacing.xs, trailing: AppTheme.Spacing.md))
@@ -127,36 +117,13 @@ struct StoreDetailView: View {
                             }
                         }
                     } header: {
-                        HStack {
-                            Text(listItem.list.name)
-                                .font(.headline)
-                                .foregroundStyle(.primary)
-                            
-                            Spacer()
-                            
-                            // Progress and actions
-                            let completedCount = listItem.categorizedProducts.flatMap { $0.products }.filter { listItem.list.isProductChecked($0.id) }.count
-                            let totalCount = listItem.categorizedProducts.flatMap { $0.products }.count
-                            
-                            HStack(spacing: AppTheme.Spacing.md) {
-                                // Uncheck All Button
-                                if completedCount > 0 {
-                                    Button(action: { clearCheckedItems(for: listItem.list) }) {
-                                        Text("Uncheck All")
-                                            .font(.caption)
-                                            .fontWeight(.medium)
-                                            .foregroundStyle(.red)
-                                    }
-                                }
-                                
-                                // Progress indicator
-                                Text("\(completedCount)/\(totalCount)")
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(completedCount == totalCount ? .green : .secondary)
-                            }
-                        }
-                        .textCase(nil)
+                        let allProducts = listItem.categorizedProducts.flatMap { $0.products }
+                        ListSectionHeader(
+                            list: listItem.list,
+                            products: allProducts,
+                            showUncheckAll: true,
+                            onUncheckAll: { clearCheckedItems(for: listItem.list) }
+                        )
                     }
                 }
             }
@@ -172,11 +139,7 @@ struct StoreDetailView: View {
     
     /// Clears all checked items from the specified list
     private func clearCheckedItems(for list: ShoppingList) {
-        guard var currentList = listViewModel.shoppingLists.first(where: { $0.id == list.id }) else {
-            return
-        }
-        currentList.checkedProductIds.removeAll()
-        listViewModel.updateList(currentList)
+        ListHelpers.clearCheckedItems(listId: list.id, in: listViewModel)
     }
 }
 
@@ -313,64 +276,6 @@ private struct LocationSection: View {
             }
             .padding(.horizontal, AppTheme.Spacing.md)
         }
-    }
-}
-
-// MARK: - Interactive Product Card
-
-/// Product card with checkbox functionality for store shopping lists
-/// Reuses the same design as ListDetailView but adapted for store context
-private struct InteractiveProductCard: View {
-    let product: Product
-    let list: ShoppingList
-    @ObservedObject var listViewModel: ListViewModel
-    
-    private var isChecked: Bool {
-        // Get the latest list state from view model
-        guard let currentList = listViewModel.shoppingLists.first(where: { $0.id == list.id }) else {
-            return false
-        }
-        return currentList.isProductChecked(product.id)
-    }
-    
-    var body: some View {
-        HStack(spacing: AppTheme.Spacing.md) {
-            // Checkbox
-            Button(action: toggleProduct) {
-                Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(isChecked ? .green : .secondary)
-            }
-            .buttonStyle(.plain)
-            
-            // Product Info
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-                Text(product.name)
-                    .font(.body)
-                    .fontWeight(AppTheme.FontWeight.semibold)
-                    .foregroundStyle(isChecked ? .secondary : .primary)
-                    .strikethrough(isChecked, color: .secondary)
-                
-                Text(product.quantity.displayString)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            
-            Spacer()
-        }
-        .padding(AppTheme.Spacing.md)
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.CornerRadius.md))
-        .contentShape(Rectangle())
-    }
-    
-    private func toggleProduct() {
-        // Get mutable copy of the current list
-        guard var currentList = listViewModel.shoppingLists.first(where: { $0.id == list.id }) else {
-            return
-        }
-        currentList.toggleProductChecked(product.id)
-        listViewModel.updateList(currentList)
     }
 }
 
