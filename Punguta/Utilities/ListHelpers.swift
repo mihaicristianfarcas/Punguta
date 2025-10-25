@@ -18,46 +18,17 @@ struct ListHelpers {
     ///   - listId: The ID of the list to clear
     ///   - listViewModel: The view model managing the lists
     static func clearCheckedItems(listId: UUID, in listViewModel: ListViewModel) {
-        guard var list = listViewModel.shoppingLists.first(where: { $0.id == listId }) else {
-            return
-        }
-        list.checkedProductIds.removeAll()
-        listViewModel.updateList(list)
+        listViewModel.clearCheckedItems(in: listId)
     }
     
-    /// Toggles the checked state of a product in a specific list
+    /// Calculate completion statistics for a list
     /// - Parameters:
-    ///   - productId: The ID of the product to toggle
-    ///   - listId: The ID of the list containing the product
-    ///   - listViewModel: The view model managing the lists
-    static func toggleProductChecked(productId: UUID, in listId: UUID, using listViewModel: ListViewModel) {
-        guard var list = listViewModel.shoppingLists.first(where: { $0.id == listId }) else {
-            return
-        }
-        list.toggleProductChecked(productId)
-        listViewModel.updateList(list)
-    }
-    
-    /// Checks if a product is checked in a specific list
-    /// - Parameters:
-    ///   - productId: The ID of the product to check
-    ///   - listId: The ID of the list
-    ///   - listViewModel: The view model managing the lists
-    /// - Returns: `true` if the product is checked, `false` otherwise
-    static func isProductChecked(productId: UUID, in listId: UUID, using listViewModel: ListViewModel) -> Bool {
-        guard let list = listViewModel.shoppingLists.first(where: { $0.id == listId }) else {
-            return false
-        }
-        return list.isProductChecked(productId)
-    }
-    
-    /// Calculates completion statistics for products in a list
-    /// - Parameters:
-    ///   - products: Array of products to calculate statistics for
-    ///   - list: The shopping list containing checked state
-    /// - Returns: Tuple containing completed count and total count
+    ///   - products: All products in the list
+    ///   - list: The shopping list to check against
+    /// - Returns: Tuple with completed and total counts
     static func completionStats(for products: [Product], in list: ShoppingList) -> (completed: Int, total: Int) {
-        let completedCount = products.filter { list.isProductChecked($0.id) }.count
-        return (completedCount, products.count)
+        let total = products.count
+        let completed = products.filter { list.isProductChecked($0) }.count
+        return (completed: completed, total: total)
     }
 }

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 // MARK: - Products List View
 
@@ -19,6 +20,18 @@ import SwiftUI
 /// - Swipe actions for quick edit/delete
 /// - Coordination with ListViewModel for product-list relationships
 struct ProductsListView: View {
+    
+    // MARK: Environment
+    
+    @Environment(\.modelContext) private var modelContext
+    
+    // MARK: Queries
+    
+    /// All products from SwiftData
+    @Query(sort: \Product.name) private var allProducts: [Product]
+    
+    /// All categories from SwiftData
+    @Query(sort: \Category.name) private var categories: [Category]
     
     // MARK: Properties
     
@@ -44,17 +57,14 @@ struct ProductsListView: View {
     @State private var searchText = ""
     
     /// Currently selected category filter (nil = all categories)
-    @State private var selectedCategory: UUID?
-    
-    /// All available categories
-    private let categories = Category.defaultCategories
+    @State private var selectedCategory: Category?
     
     // MARK: Computed Properties
     
     /// Products filtered by search and category
     /// Sorted alphabetically by name
     private var filteredProducts: [Product] {
-        var filtered = productViewModel.products
+        var filtered = allProducts
         
         // Apply search filter
         if !searchText.isEmpty {
@@ -64,21 +74,23 @@ struct ProductsListView: View {
         }
         
         // Apply category filter
-        if let categoryId = selectedCategory {
-            filtered = filtered.filter { $0.categoryId == categoryId }
+        if let category = selectedCategory {
+            filtered = filtered.filter { $0.category?.id == category.id }
         }
         
         return filtered.sorted { $0.name < $1.name }
     }
     
-    /// Products grouped by category ID
-    private var productsByCategory: [UUID: [Product]] {
-        Dictionary(grouping: filteredProducts) { $0.categoryId }
+    /// Products grouped by category
+    private var productsByCategory: [Category: [Product]] {
+        Dictionary(grouping: filteredProducts) { product in
+            product.category ?? Category(name: "Uncategorized", keywords: [], defaultUnit: nil)
+        }
     }
     
     /// Categories that have at least one product
     private var categoriesWithProducts: [Category] {
-        categories.filter { productsByCategory[$0.id] != nil }
+        Array(productsByCategory.keys).sorted { $0.name < $1.name }
     }
     
     var body: some View {
@@ -92,7 +104,7 @@ struct ProductsListView: View {
                     
                     // Products or empty states
                     if filteredProducts.isEmpty {
-                        if productViewModel.products.isEmpty {
+                        if allProducts.isEmpty {
                             Section {
                                 EmptyStateView(
                                     icon: "cart",
@@ -113,7 +125,7 @@ struct ProductsListView: View {
                         // Products grouped by category
                         ForEach(categoriesWithProducts) { category in
                             Section {
-                                ForEach(productsByCategory[category.id] ?? []) { product in
+                                ForEach(productsByCategory[category] ?? []) { product in
                                     ProductRowView(
                                         product: product,
                                         category: category,
@@ -152,14 +164,12 @@ struct ProductsListView: View {
             }
             .sheet(isPresented: $showingAddProduct) {
                 AddEditProductView(
-                    viewModel: productViewModel,
-                    categories: categories
+                    productViewModel: productViewModel
                 )
             }
             .sheet(item: $productToEdit) { product in
                 AddEditProductView(
-                    viewModel: productViewModel,
-                    categories: categories,
+                    productViewModel: productViewModel,
                     productToEdit: product
                 )
             }
@@ -173,10 +183,9 @@ struct ProductsListView: View {
                 }
                 Button("Delete", role: .destructive) {
                     withAnimation {
-                        // Remove product from all lists first
-                        listViewModel.removeProductFromAllLists(product.id)
-                        // Then delete the product
-                        productViewModel.deleteProduct(product)
+                        // Remove product from all lists via cascade delete
+                        modelContext.delete(product)
+                        try? modelContext.save()
                     }
                     productToDelete = nil
                 }
@@ -248,7 +257,7 @@ private struct ProductsNoResultsView: View {
 // MARK: - Category Filter Section
 private struct CategoryFilterSection: View {
     let categories: [Category]
-    @Binding var selectedCategory: UUID?
+    @Binding var selectedCategory: Category?
 
     var body: some View {
         Section {
@@ -264,9 +273,9 @@ private struct CategoryFilterSection: View {
                             title: category.name,
                             icon: category.icon,
                             color: category.visualColor,
-                            isSelected: selectedCategory == category.id,
+                            isSelected: selectedCategory?.id == category.id,
                             action: {
-                                selectedCategory = (selectedCategory == category.id) ? nil : category.id
+                                selectedCategory = (selectedCategory?.id == category.id) ? nil : category
                             }
                         )
                     }
@@ -282,5 +291,16 @@ private struct CategoryFilterSection: View {
 
 // MARK: - Preview
 #Preview {
-    ProductsListView(productViewModel: ProductViewModel(), listViewModel: ListViewModel())
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(
+        for: Category.self, Product.self, ShoppingList.self, ShoppingListItem.self, Store.self,
+        configurations: config
+    )
+    let context = ModelContext(container)
+    
+    ProductsListView(
+        productViewModel: ProductViewModel(modelContext: context),
+        listViewModel: ListViewModel(modelContext: context)
+    )
+    .modelContainer(container)
 }

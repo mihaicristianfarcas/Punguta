@@ -7,41 +7,34 @@
 
 import Foundation
 import SwiftUI
+import SwiftData
 import Combine
 
 // MARK: - Product View Model
 
-/// Manages products independently from shopping lists
+/// Manages products using SwiftData
 ///
 /// **Responsibilities**:
-/// - CRUD operations for products
+/// - CRUD operations for products via ModelContext
 /// - Product categorization and auto-suggestions
 /// - Product search and filtering
-/// - Data persistence coordination
 ///
-/// **Design Pattern**: MVVM (Model-View-ViewModel)
-/// - Separates product business logic from UI
-/// - Provides reactive data binding via @Published
-/// - Ensures main thread execution with @MainActor
-/// - Can be shared across multiple views
+/// **Design Pattern**: MVVM with SwiftData
+/// - Lightweight business logic coordinator
+/// - SwiftData handles persistence automatically
+/// - Uses ModelContext for database operations
 @MainActor
 class ProductViewModel: ObservableObject {
     
-    // MARK: Published Properties
-    
-    /// All products in the app (global, shared across lists)
-    @Published var products: [Product] = []
-    
     // MARK: Private Properties
     
-    /// Data persistence handler
-    private let persistence: DataPersistenceProtocol
+    /// SwiftData model context for database operations
+    private let modelContext: ModelContext
     
     // MARK: Initializer
     
-    init(persistence: DataPersistenceProtocol = MockDataPersistence()) {
-        self.persistence = persistence
-        loadProducts()
+    init(modelContext: ModelContext) {
+        self.modelContext = modelContext
     }
     
     // MARK: - Product Operations
@@ -49,75 +42,78 @@ class ProductViewModel: ObservableObject {
     /// Create a new product
     /// - Parameters:
     ///   - name: Product name
-    ///   - categoryId: Category the product belongs to
+    ///   - category: Category the product belongs to (optional)
     ///   - quantity: Amount and unit
-    /// - Returns: The ID of the newly created product
+    /// - Returns: The newly created product
     @discardableResult
-    func createProduct(name: String, categoryId: UUID, quantity: ProductQuantity) -> UUID {
-        let product = Product(name: name, categoryId: categoryId, quantity: quantity)
-        products.append(product)
-        saveProducts()
-        objectWillChange.send()
-        return product.id
+    func createProduct(name: String, category: Category?, quantity: ProductQuantity) -> Product {
+        let product = Product(name: name, category: category, quantity: quantity)
+        modelContext.insert(product)
+        try? modelContext.save()
+        return product
     }
     
-    /// Update an existing product
-    /// - Parameter product: The updated product
+    /// Update a product (SwiftData tracks changes automatically)
+    /// - Parameter product: The product to update
     func updateProduct(_ product: Product) {
-        guard let index = products.firstIndex(where: { $0.id == product.id }) else {
-            return
-        }
-        products[index] = product
-        saveProducts()
-        objectWillChange.send()
+        try? modelContext.save()
     }
     
     /// Delete a product globally
     /// - Parameter product: The product to delete
-    /// - Note: Caller is responsible for removing product from shopping lists
+    /// - Note: Cascade delete will remove associated ShoppingListItems
     func deleteProduct(_ product: Product) {
-        products.removeAll { $0.id == product.id }
-        saveProducts()
-        objectWillChange.send()
+        modelContext.delete(product)
+        try? modelContext.save()
     }
     
     /// Update a product's quantity
     /// - Parameters:
-    ///   - productId: ID of the product to update
+    ///   - product: The product to update
     ///   - newQuantity: New quantity to set
-    func updateProductQuantity(productId: UUID, newQuantity: ProductQuantity) {
-        guard let index = products.firstIndex(where: { $0.id == productId }) else {
-            return
-        }
-        products[index].updateQuantity(newQuantity)
-        saveProducts()
-        objectWillChange.send()
+    func updateProductQuantity(_ product: Product, newQuantity: ProductQuantity) {
+        product.updateQuantity(newQuantity)
+        try? modelContext.save()
     }
     
     // MARK: - Query Methods
     
-    /// Find a product by ID
-    /// - Parameter id: The product ID
-    /// - Returns: The product if found, nil otherwise
-    func product(for id: UUID) -> Product? {
-        products.first { $0.id == id }
+    /// Fetch all products
+    /// - Returns: Array of all products
+    func fetchAllProducts() -> [Product] {
+        let descriptor = FetchDescriptor<Product>(sortBy: [SortDescriptor(\.name)])
+        return (try? modelContext.fetch(descriptor)) ?? []
     }
     
     /// Get products filtered by category
-    /// - Parameter categoryId: The category to filter by
+    /// - Parameter category: The category to filter by
     /// - Returns: Array of products in that category
-    func products(inCategory categoryId: UUID) -> [Product] {
-        products.filter { $0.categoryId == categoryId }
+    func fetchProducts(inCategory category: Category) -> [Product] {
+        let categoryId = category.id
+        let descriptor = FetchDescriptor<Product>(
+            predicate: #Predicate<Product> { product in
+                product.category?.id == categoryId
+            },
+            sortBy: [SortDescriptor(\.name)]
+        )
+        return (try? modelContext.fetch(descriptor)) ?? []
     }
     
-    /// Get products matching a search query
+    /// Search products by name
     /// - Parameter query: Search text
     /// - Returns: Array of products whose names contain the query
     func searchProducts(_ query: String) -> [Product] {
         if query.isEmpty {
-            return products
+            return fetchAllProducts()
         }
-        return products.filter { $0.name.localizedCaseInsensitiveContains(query) }
+        
+        let descriptor = FetchDescriptor<Product>(
+            predicate: #Predicate { product in
+                product.name.localizedStandardContains(query)
+            },
+            sortBy: [SortDescriptor(\.name)]
+        )
+        return (try? modelContext.fetch(descriptor)) ?? []
     }
     
     // MARK: - Auto-Categorization
@@ -133,8 +129,8 @@ class ProductViewModel: ObservableObject {
     /// - Parameters:
     ///   - productName: Name of the product
     ///   - categories: Available categories to search
-    /// - Returns: Category ID if match found, nil otherwise
-    func suggestCategory(for productName: String, categories: [Category]) -> UUID? {
+    /// - Returns: Category if match found, nil otherwise
+    func suggestCategory(for productName: String, from categories: [Category]) -> Category? {
         let lowercaseName = productName.lowercased().trimmingCharacters(in: .whitespaces)
         
         // Return nil for empty names
@@ -164,82 +160,6 @@ class ProductViewModel: ObservableObject {
         
         // Return the category with the longest matching keyword (most specific match)
         let bestMatch = matches.max { $0.keywordLength < $1.keywordLength }
-        return bestMatch?.category.id
-    }
-    
-    // MARK: - Data Persistence
-    
-    /// Load products from persistent storage
-    private func loadProducts() {
-        // Try to load persisted data
-        if let savedProducts: [Product] = persistence.load(forKey: StorageKeys.products) {
-            self.products = savedProducts
-        } else {
-            // No saved data, load sample products for first launch
-            loadSampleProducts()
-        }
-    }
-    
-    /// Save products to persistent storage
-    private func saveProducts() {
-        persistence.save(products, forKey: StorageKeys.products)
-    }
-    
-    // MARK: - Sample Data
-    
-    /// Load sample products for demonstration and first-time app launch
-    private func loadSampleProducts() {
-        let categories = Category.defaultCategories
-        
-        // Find categories for sample products
-        guard let produceCategory = categories.first(where: { $0.name == "Produce" }),
-              let dairyCategory = categories.first(where: { $0.name == "Dairy" }),
-              let meatCategory = categories.first(where: { $0.name == "Meat" }),
-              let bakeryCategory = categories.first(where: { $0.name == "Bakery" }),
-              let beveragesCategory = categories.first(where: { $0.name == "Beverages" }) else {
-            return
-        }
-        
-        // Create sample products
-        products = [
-            Product(
-                name: "Bananas",
-                categoryId: produceCategory.id,
-                quantity: ProductQuantity(amount: 1, unit: "kg")
-            ),
-            Product(
-                name: "Milk",
-                categoryId: dairyCategory.id,
-                quantity: ProductQuantity(amount: 2, unit: "L")
-            ),
-            Product(
-                name: "Chicken Breast",
-                categoryId: meatCategory.id,
-                quantity: ProductQuantity(amount: 500, unit: "g")
-            ),
-            Product(
-                name: "Apples",
-                categoryId: produceCategory.id,
-                quantity: ProductQuantity(amount: 1.5, unit: "kg")
-            ),
-            Product(
-                name: "Yogurt",
-                categoryId: dairyCategory.id,
-                quantity: ProductQuantity(amount: 4, unit: "pcs")
-            ),
-            Product(
-                name: "Bread",
-                categoryId: bakeryCategory.id,
-                quantity: ProductQuantity(amount: 1, unit: "pcs")
-            ),
-            Product(
-                name: "Orange Juice",
-                categoryId: beveragesCategory.id,
-                quantity: ProductQuantity(amount: 1, unit: "L")
-            )
-        ]
-        
-        // Save sample products
-        saveProducts()
+        return bestMatch?.category
     }
 }

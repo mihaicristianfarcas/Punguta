@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 // MARK: - Add Edit List View
 
@@ -30,6 +31,12 @@ struct AddEditListView: View {
     /// View model for managing products
     @ObservedObject var productViewModel: ProductViewModel
     
+    /// All products from SwiftData
+    @Query(sort: \Product.name) private var allProducts: [Product]
+    
+    /// All categories from SwiftData
+    @Query private var categories: [Category]
+    
     /// If editing, this contains the list to edit
     let listToEdit: ShoppingList?
     
@@ -38,8 +45,8 @@ struct AddEditListView: View {
     /// List name input
     @State private var name: String = ""
     
-    /// Array of selected product IDs
-    @State private var selectedProductIds: [UUID] = []
+    /// Array of selected products
+    @State private var selectedProducts: [Product] = []
     
     /// Controls display of product picker sheet
     @State private var showingProductPicker = false
@@ -66,7 +73,7 @@ struct AddEditListView: View {
         // Pre-populate form when editing
         if let list = listToEdit {
             _name = State(initialValue: list.name)
-            _selectedProductIds = State(initialValue: list.productIds)
+            _selectedProducts = State(initialValue: list.products)
         }
     }
     
@@ -86,7 +93,7 @@ struct AddEditListView: View {
                 // MARK: Products Section
                 Section {
                     // Empty state or product list
-                    if selectedProductIds.isEmpty {
+                    if selectedProducts.isEmpty {
                         // Empty state when no products selected
                         Text("No products added yet")
                             .font(.subheadline)
@@ -99,9 +106,7 @@ struct AddEditListView: View {
                             ProductRowView(product: product)
                         }
                         .onDelete { indexSet in
-                            indexSet.forEach { index in
-                                selectedProductIds.remove(at: index)
-                            }
+                            selectedProducts.remove(atOffsets: indexSet)
                         }
                     }
                     
@@ -110,7 +115,7 @@ struct AddEditListView: View {
                         showingProductPicker = true
                     }
                 } header: {
-                    Text("Products (\(selectedProductIds.count))")
+                    Text("Products (\(selectedProducts.count))")
                 }
             }
             .navigationTitle(isEditing ? "Edit List" : "New List")
@@ -133,8 +138,9 @@ struct AddEditListView: View {
             .sheet(isPresented: $showingProductPicker) {
                 ProductPickerView(
                     productViewModel: productViewModel,
-                    availableProducts: productViewModel.products,
-                    selectedProductIds: $selectedProductIds,
+                    availableProducts: allProducts,
+                    categories: categories,
+                    selectedProducts: $selectedProducts
                 )
             }
         }
@@ -142,25 +148,35 @@ struct AddEditListView: View {
     
     // MARK: - Helper Methods
     
-    /// Resolves product IDs to actual Product objects
-    private var selectedProducts: [Product] {
-        selectedProductIds.compactMap { id in
-            productViewModel.products.first { $0.id == id }
-        }
-    }
-    
     /// Saves the list (creating new or updating existing)
     private func saveList() {
         if let existingList = listToEdit {
             // Update existing list
-            var updatedList = existingList
-            updatedList.name = name
-            updatedList.productIds = selectedProductIds
-            updatedList.updatedAt = Date()
-            listViewModel.updateList(updatedList)
+            existingList.name = name
+            
+            // Remove products no longer selected
+            if let items = existingList.items {
+                for item in items {
+                    if let product = item.product, !selectedProducts.contains(where: { $0.id == product.id }) {
+                        listViewModel.removeItem(item, from: existingList)
+                    }
+                }
+            }
+            
+            // Add newly selected products
+            for product in selectedProducts {
+                if !existingList.products.contains(where: { $0.id == product.id }) {
+                    listViewModel.addProduct(product, to: existingList)
+                }
+            }
+            
+            listViewModel.updateList(existingList)
         } else {
             // Create new list
-            listViewModel.createList(name: name, productIds: selectedProductIds)
+            let newList = listViewModel.createList(name: name)
+            for product in selectedProducts {
+                listViewModel.addProduct(product, to: newList)
+            }
         }
         dismiss()
     }
@@ -192,21 +208,24 @@ private struct ProductPickerView: View {
     @Environment(\.dismiss) private var dismiss
     
     let productViewModel: ProductViewModel
-    
     let availableProducts: [Product]
+    let categories: [Category]
     
-    @Binding var selectedProductIds: [UUID]
+    @Binding var selectedProducts: [Product]
     
     @State private var searchText = ""
     @State private var showingAddProduct = false
     
     private var filteredProducts: [Product] {
         if searchText.isEmpty {
-            return availableProducts.sorted { $0.name < $1.name }
+            return availableProducts
         }
         return availableProducts
             .filter { $0.name.localizedCaseInsensitiveContains(searchText) }
-            .sorted { $0.name < $1.name }
+    }
+    
+    private var selectedProductIds: Set<UUID> {
+        Set(selectedProducts.map { $0.id })
     }
     
     var body: some View {
@@ -281,11 +300,10 @@ private struct ProductPickerView: View {
             }
             .sheet(isPresented: $showingAddProduct) {
                 AddEditProductView(
-                    viewModel: productViewModel,
-                    categories: Category.defaultCategories,
-                    onProductCreated: { productId in
+                    productViewModel: productViewModel,
+                    onProductCreated: { product in
                         // Automatically select the newly created product
-                        selectedProductIds.append(productId)
+                        selectedProducts.append(product)
                     }
                 )
             }
@@ -293,18 +311,26 @@ private struct ProductPickerView: View {
     }
     
     private func toggleProduct(_ product: Product) {
-        if let index = selectedProductIds.firstIndex(of: product.id) {
-            selectedProductIds.remove(at: index)
+        if let index = selectedProducts.firstIndex(where: { $0.id == product.id }) {
+            selectedProducts.remove(at: index)
         } else {
-            selectedProductIds.append(product.id)
+            selectedProducts.append(product)
         }
     }
 }
 
 // MARK: - Preview
 #Preview {
-    AddEditListView(
-        listViewModel: ListViewModel(),
-        productViewModel: ProductViewModel()
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(
+        for: Category.self, Product.self, ShoppingList.self, ShoppingListItem.self, Store.self,
+        configurations: config
     )
+    let context = ModelContext(container)
+    
+    AddEditListView(
+        listViewModel: ListViewModel(modelContext: context),
+        productViewModel: ProductViewModel(modelContext: context)
+    )
+    .modelContainer(container)
 }

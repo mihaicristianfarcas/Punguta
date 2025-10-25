@@ -7,203 +7,164 @@
 
 import Foundation
 import SwiftUI
+import SwiftData
 import Combine
 
 // MARK: - List View Model
 
-/// Manages shopping lists
+/// Manages shopping lists using SwiftData
 ///
 /// **Responsibilities**:
-/// - CRUD operations for shopping lists
+/// - CRUD operations for shopping lists via ModelContext
 /// - List-product relationship management
-/// - Data persistence coordination
 ///
-/// **Design Pattern**: MVVM (Model-View-ViewModel)
-/// - Separates business logic from UI
-/// - Provides reactive data binding via @Published
-/// - Ensures main thread execution with @MainActor
-/// - Works in conjunction with ProductViewModel for product management
+/// **Design Pattern**: MVVM with SwiftData
+/// - Lightweight business logic coordinator
+/// - SwiftData handles persistence and relationships automatically
+/// - Uses ModelContext for database operations
 @MainActor
 class ListViewModel: ObservableObject {
     
-    // MARK: Published Properties
-    
-    /// All shopping lists in the app
-    @Published var shoppingLists: [ShoppingList] = []
-    
     // MARK: Private Properties
     
-    /// Data persistence handler
-    private let persistence: DataPersistenceProtocol
-    
-    /// Reference to ProductViewModel for product operations
-    /// This creates a coordinated relationship between lists and products
-    private var productViewModel: ProductViewModel?
+    /// SwiftData model context for database operations
+    private let modelContext: ModelContext
     
     // MARK: Initializer
     
-    init(persistence: DataPersistenceProtocol = MockDataPersistence()) {
-        self.persistence = persistence
-        loadData()
-    }
-    
-    /// Set the product view model for coordinated operations
-    /// - Parameter productViewModel: The shared ProductViewModel instance
-    func setProductViewModel(_ productViewModel: ProductViewModel) {
-        self.productViewModel = productViewModel
+    init(modelContext: ModelContext) {
+        self.modelContext = modelContext
     }
     
     // MARK: - Shopping List Operations
     
     /// Create a new shopping list
-    /// - Parameters:
-    ///   - name: Display name for the list
-    ///   - productIds: Optional array of product IDs to include
-    func createList(name: String, productIds: [UUID] = []) {
-        let list = ShoppingList(name: name, productIds: productIds)
-        shoppingLists.append(list)
-        saveLists()
+    /// - Parameter name: Display name for the list
+    /// - Returns: The newly created shopping list
+    @discardableResult
+    func createList(name: String) -> ShoppingList {
+        let list = ShoppingList(name: name)
+        modelContext.insert(list)
+        try? modelContext.save()
+        return list
     }
     
-    /// Update an existing shopping list
-    /// - Parameter list: The updated list
+    /// Update a shopping list (SwiftData tracks changes automatically)
+    /// - Parameter list: The list to update
     func updateList(_ list: ShoppingList) {
-        guard let index = shoppingLists.firstIndex(where: { $0.id == list.id }) else {
-            return
-        }
-        shoppingLists[index] = list
-        saveLists()
-        objectWillChange.send()
+        list.updatedAt = Date()
+        try? modelContext.save()
     }
     
     /// Delete a shopping list
     /// - Parameter list: The list to delete
-    /// - Note: Does not delete the products themselves
+    /// - Note: Cascade delete will remove associated ShoppingListItems
     func deleteList(_ list: ShoppingList) {
-        shoppingLists.removeAll { $0.id == list.id }
-        saveLists()
+        modelContext.delete(list)
+        try? modelContext.save()
     }
     
-    /// Delete shopping lists at specific offsets
-    /// - Parameter offsets: IndexSet of lists to delete
-    /// - Note: Used for swipe-to-delete in List views
-    func deleteList(at offsets: IndexSet) {
-        shoppingLists.remove(atOffsets: offsets)
-        saveLists()
+    /// Delete shopping lists
+    /// - Parameter lists: Array of lists to delete
+    func deleteLists(_ lists: [ShoppingList]) {
+        for list in lists {
+            modelContext.delete(list)
+        }
+        try? modelContext.save()
     }
     
     // MARK: - List-Product Relationship
     
     /// Add a product to a shopping list
     /// - Parameters:
-    ///   - productId: ID of the product to add
-    ///   - listId: ID of the shopping list
-    func addProduct(_ productId: UUID, toList listId: UUID) {
-        guard let index = shoppingLists.firstIndex(where: { $0.id == listId }) else {
-            return
-        }
-        shoppingLists[index].addProduct(productId)
-        saveLists()
+    ///   - product: The product to add
+    ///   - list: The shopping list
+    func addProduct(_ product: Product, to list: ShoppingList) {
+        list.addProduct(product)
+        try? modelContext.save()
     }
     
     /// Remove a product from a shopping list
     /// - Parameters:
-    ///   - productId: ID of the product to remove
-    ///   - listId: ID of the shopping list
-    /// - Note: Does not delete the product globally
-    func removeProduct(_ productId: UUID, fromList listId: UUID) {
-        guard let index = shoppingLists.firstIndex(where: { $0.id == listId }) else {
-            return
-        }
-        shoppingLists[index].removeProduct(productId)
-        saveLists()
+    ///   - product: The product to remove
+    ///   - list: The shopping list
+    func removeProduct(_ product: Product, from list: ShoppingList) {
+        list.removeProduct(product)
+        try? modelContext.save()
     }
     
-    /// Remove a product from all shopping lists
-    /// - Parameter productId: ID of the product to remove
-    /// - Note: Called when a product is deleted globally
-    func removeProductFromAllLists(_ productId: UUID) {
-        for index in shoppingLists.indices {
-            shoppingLists[index].removeProduct(productId)
-        }
-        saveLists()
+    /// Remove a shopping list item
+    /// - Parameters:
+    ///   - item: The item to remove
+    ///   - list: The shopping list
+    func removeItem(_ item: ShoppingListItem, from list: ShoppingList) {
+        list.removeItem(item)
+        modelContext.delete(item)
+        try? modelContext.save()
     }
     
     /// Toggle the checked state of a product in a specific list
     /// - Parameters:
-    ///   - productId: ID of the product to toggle
-    ///   - listId: ID of the shopping list
-    func toggleProductChecked(_ productId: UUID, inList listId: UUID) {
-        guard let index = shoppingLists.firstIndex(where: { $0.id == listId }) else {
-            return
-        }
-        shoppingLists[index].toggleProductChecked(productId)
-        saveLists()
-        objectWillChange.send()
+    ///   - product: The product to toggle
+    ///   - list: The shopping list
+    func toggleProductChecked(_ product: Product, in list: ShoppingList) {
+        list.toggleProductChecked(product)
+        try? modelContext.save()
+    }
+    
+    /// Toggle the checked state of a product in a specific list by list ID
+    /// - Parameters:
+    ///   - product: The product to toggle
+    ///   - listId: The ID of the shopping list
+    func toggleProductChecked(_ product: Product, in listId: UUID) {
+        let descriptor = FetchDescriptor<ShoppingList>(
+            predicate: #Predicate { $0.id == listId }
+        )
+        guard let list = try? modelContext.fetch(descriptor).first else { return }
+        list.toggleProductChecked(product)
+        try? modelContext.save()
+    }
+    
+    /// Check if a product is checked in a specific list by list ID
+    /// - Parameters:
+    ///   - product: The product to check
+    ///   - listId: The ID of the shopping list
+    /// - Returns: True if the product is checked in the list
+    func isProductChecked(_ product: Product, in listId: UUID) -> Bool {
+        let descriptor = FetchDescriptor<ShoppingList>(
+            predicate: #Predicate { $0.id == listId }
+        )
+        guard let list = try? modelContext.fetch(descriptor).first else { return false }
+        return list.isProductChecked(product)
+    }
+    
+    /// Clear all checked items from a specific list
+    /// - Parameter listId: The ID of the list to clear
+    func clearCheckedItems(in listId: UUID) {
+        let descriptor = FetchDescriptor<ShoppingList>(
+            predicate: #Predicate { $0.id == listId }
+        )
+        guard let list = try? modelContext.fetch(descriptor).first else { return }
+        list.clearCheckedItems()
+        try? modelContext.save()
     }
     
     // MARK: - Query Methods
     
-    /// Get a specific shopping list by ID
-    /// - Parameter id: The list ID
-    /// - Returns: The shopping list if found, nil otherwise
-    func list(for id: UUID) -> ShoppingList? {
-        shoppingLists.first { $0.id == id }
+    /// Fetch all shopping lists
+    /// - Returns: Array of all shopping lists
+    func fetchAllLists() -> [ShoppingList] {
+        let descriptor = FetchDescriptor<ShoppingList>(sortBy: [SortDescriptor(\.name)])
+        return (try? modelContext.fetch(descriptor)) ?? []
     }
     
-    // MARK: - Data Persistence
-    
-    /// Load shopping lists from persistent storage
-    private func loadData() {
-        // Try to load persisted lists
-        if let savedLists: [ShoppingList] = persistence.load(forKey: StorageKeys.shoppingLists) {
-            self.shoppingLists = savedLists
-        } else {
-            // No saved data, load sample lists for first launch
-            loadSampleLists()
+    /// Fetch lists containing a specific product
+    /// - Parameter product: The product to search for
+    /// - Returns: Array of shopping lists containing the product
+    func fetchLists(containing product: Product) -> [ShoppingList] {
+        let allLists = fetchAllLists()
+        return allLists.filter { list in
+            list.products.contains { $0.id == product.id }
         }
-    }
-    
-    /// Save shopping lists to persistent storage
-    private func saveLists() {
-        persistence.save(shoppingLists, forKey: StorageKeys.shoppingLists)
-    }
-    
-    // MARK: - Sample Data
-    
-    /// Load sample shopping lists for demonstration and first-time app launch
-    /// Creates sample lists that reference products from ProductViewModel
-    private func loadSampleLists() {
-        // Sample lists will be populated with product IDs after products are loaded
-        // This is coordinated through ContentView or app initialization
-        shoppingLists = [
-            ShoppingList(name: "Weekly Groceries", productIds: []),
-            ShoppingList(name: "Weekend BBQ", productIds: [])
-        ]
-        
-        // Save sample lists
-        saveLists()
-    }
-    
-    /// Initialize sample lists with actual product IDs
-    /// - Parameter products: Array of products to reference
-    /// - Note: Called after ProductViewModel has loaded sample products
-    func initializeSampleLists(with products: [Product]) {
-        guard shoppingLists.count >= 2, products.count >= 5 else { return }
-        
-        // Update first list with some products
-        shoppingLists[0].productIds = [
-            products[0].id,  // Bananas
-            products[1].id,  // Milk
-            products[2].id   // Chicken Breast
-        ]
-        
-        // Update second list with different products
-        shoppingLists[1].productIds = [
-            products[2].id,  // Chicken Breast
-            products[3].id   // Apples
-        ]
-        
-        saveLists()
     }
 }

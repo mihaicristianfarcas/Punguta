@@ -7,6 +7,7 @@
 
 import SwiftUI
 import MapKit
+import SwiftData
 
 // MARK: - Store Detail View
 
@@ -19,13 +20,25 @@ import MapKit
 /// - Color-coded UI based on store type
 struct StoreDetailView: View {
     
+    // MARK: Environment
+    
+    @Environment(\.modelContext) private var modelContext
+    
+    // MARK: Queries
+    
+    /// All categories from SwiftData
+    @Query(sort: \Category.name) private var allCategories: [Category]
+    
+    /// All shopping lists from SwiftData
+    @Query(sort: \ShoppingList.updatedAt, order: .reverse) private var allShoppingLists: [ShoppingList]
+    
     // MARK: Properties
     
     /// The store being displayed
     let store: Store
     
-    /// View model for accessing categories data
-    let viewModel: StoreViewModel
+    /// View model for store operations
+    let storeViewModel: StoreViewModel
     
     /// View model for accessing products data
     @ObservedObject var productViewModel: ProductViewModel
@@ -38,29 +51,30 @@ struct StoreDetailView: View {
     /// Categories in the store's custom ordering
     private var orderedCategories: [Category] {
         store.categoryOrder.compactMap { categoryId in
-            viewModel.categories.first { $0.id == categoryId }
+            allCategories.first { $0.id == categoryId }
         }
     }
     
     /// Shopping lists with products available at this store, organized by category
     /// Structure: [(list, [(category, [products])])]
     private var listsWithStoreProducts: [(list: ShoppingList, categorizedProducts: [(category: Category, products: [Product])])] {
-        listViewModel.shoppingLists.compactMap { list in
-            // Get products from this list
-            let listProducts = list.productIds.compactMap { productId in
-                productViewModel.products.first { $0.id == productId }
-            }
+        allShoppingLists.compactMap { list in
+            // Get products from this list via junction model
+            let listProducts = list.products
             
             // Filter to only products available at this store (matching store's categories)
             let storeProducts = listProducts.filter { product in
-                store.categoryOrder.contains(product.categoryId)
+                if let categoryId = product.category?.id {
+                    return store.categoryOrder.contains(categoryId)
+                }
+                return false
             }
             
             guard !storeProducts.isEmpty else { return nil }
             
             // Group products by category following store's category order
             let categorizedProducts = orderedCategories.compactMap { category -> (Category, [Product])? in
-                let productsInCategory = storeProducts.filter { $0.categoryId == category.id }
+                let productsInCategory = storeProducts.filter { $0.category?.id == category.id }
                 guard !productsInCategory.isEmpty else { return nil }
                 return (category, productsInCategory.sorted { $0.name < $1.name })
             }
@@ -304,17 +318,28 @@ private struct EmptyListsState: View {
 
 // MARK: - Preview
 #Preview {
-    let storeViewModel = StoreViewModel()
-    let productViewModel = ProductViewModel()
-    let listViewModel = ListViewModel()
-    listViewModel.initializeSampleLists(with: productViewModel.products)
-    let store = storeViewModel.stores.first!
+    let modelContext = ModelContext(try! ModelContainer(for: Store.self, Product.self, Category.self, ShoppingList.self))
+    let storeViewModel = StoreViewModel(modelContext: modelContext)
+    let productViewModel = ProductViewModel(modelContext: modelContext)
+    let listViewModel = ListViewModel(modelContext: modelContext)
+    
+    let store = storeViewModel.createStore(
+        name: "Sample Store",
+        type: .grocery,
+        location: StoreLocation(
+            coordinate: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
+            address: "123 Main St"
+        ),
+        categoryOrder: []
+    )
+    
     return NavigationStack {
         StoreDetailView(
             store: store,
-            viewModel: storeViewModel,
+            storeViewModel: storeViewModel,
             productViewModel: productViewModel,
             listViewModel: listViewModel
         )
     }
+    .modelContainer(try! ModelContainer(for: Store.self, Product.self, Category.self, ShoppingList.self))
 }

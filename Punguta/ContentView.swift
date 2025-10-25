@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 // MARK: - Content View
 
@@ -13,53 +14,70 @@ import SwiftUI
 ///
 /// **Architecture**:
 /// - Three main tabs: Stores, Lists, Products
-/// - ProductViewModel manages all products globally
-/// - ListViewModel manages shopping lists and references products
-/// - StoresListView manages its own StoreViewModel
-/// - Coordination between ListViewModel and ProductViewModel ensures data consistency
+/// - SwiftData ModelContext injected via environment
+/// - ViewModels initialized with ModelContext for database operations
+/// - Views use @Query for automatic data updates
 struct ContentView: View {
     
-    // MARK: Properties
+    // MARK: Environment
     
-    /// Shared view model for products
-    /// Ensures product data is consistent across all views
-    @StateObject private var productViewModel = ProductViewModel()
+    /// SwiftData model context for database operations
+    @Environment(\.modelContext) private var modelContext
     
-    /// View model for shopping lists
-    /// Manages lists and their relationships with products
-    @StateObject private var listViewModel = ListViewModel()
+    // MARK: State
+    
+    /// View models initialized with ModelContext
+    @State private var productViewModel: ProductViewModel?
+    @State private var listViewModel: ListViewModel?
+    @State private var storeViewModel: StoreViewModel?
     
     // MARK: Body
     
     var body: some View {
-        TabView {
-            // MARK: Stores Tab
-            StoresListView(productViewModel: productViewModel, listViewModel: listViewModel)
-                .tabItem {
-                    Label("Stores", systemImage: "storefront")
+        Group {
+            if let productVM = productViewModel,
+               let listVM = listViewModel,
+               let storeVM = storeViewModel {
+                TabView {
+                    // MARK: Stores Tab
+                    StoresListView(
+                        storeViewModel: storeVM,
+                        productViewModel: productVM,
+                        listViewModel: listVM
+                    )
+                    .tabItem {
+                        Label("Stores", systemImage: "storefront")
+                    }
+                    
+                    // MARK: Lists Tab
+                    ListsListView(
+                        listViewModel: listVM,
+                        productViewModel: productVM
+                    )
+                    .tabItem {
+                        Label("Lists", systemImage: "list.bullet")
+                    }
+                    
+                    // MARK: Products Tab
+                    ProductsListView(
+                        productViewModel: productVM,
+                        listViewModel: listVM
+                    )
+                    .tabItem {
+                        Label("Products", systemImage: "cart")
+                    }
                 }
-            
-            // MARK: Lists Tab
-            ListsView(productViewModel: productViewModel)
-                .tabItem {
-                    Label("Lists", systemImage: "list.bullet")
-                }
-                .environmentObject(listViewModel)
-            
-            // MARK: Products Tab
-            ProductsListView(productViewModel: productViewModel, listViewModel: listViewModel)
-                .tabItem {
-                    Label("Products", systemImage: "cart")
-                }
+                .tint(AppTheme.Colors.primaryAction)
+            } else {
+                ProgressView("Loading...")
+            }
         }
-        // Apply consistent tab styling
-        .tint(AppTheme.Colors.primaryAction)
         .onAppear {
-            // Initialize sample lists with product IDs if needed
-            if listViewModel.shoppingLists.count == 2 &&
-               listViewModel.shoppingLists[0].productIds.isEmpty &&
-               productViewModel.products.count > 0 {
-                listViewModel.initializeSampleLists(with: productViewModel.products)
+            // Initialize view models with ModelContext
+            if productViewModel == nil {
+                productViewModel = ProductViewModel(modelContext: modelContext)
+                listViewModel = ListViewModel(modelContext: modelContext)
+                storeViewModel = StoreViewModel(modelContext: modelContext)
             }
         }
     }
@@ -69,4 +87,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+        .modelContainer(for: [Category.self, Product.self, ShoppingList.self, ShoppingListItem.self, Store.self])
 }

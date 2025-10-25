@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftData
 
 // MARK: - Category
 
@@ -15,12 +16,14 @@ import Foundation
 /// - Keywords enable automatic product categorization
 /// - Default units simplify product creation
 /// - Visual styling defined in Category+Visual extension
-struct Category: Identifiable, Codable, Hashable {
+/// - SwiftData model with inverse relationships to Products and Stores
+@Model
+final class Category {
     
     // MARK: Properties
     
     /// Unique identifier for the category
-    let id: UUID
+    @Attribute(.unique) var id: UUID
     
     /// Display name of the category (e.g., "Dairy", "Produce")
     var name: String
@@ -33,6 +36,10 @@ struct Category: Identifiable, Codable, Hashable {
     /// Example: "kg" for Produce, "L" for Beverages, "pcs" for Bakery
     var defaultUnit: String?
     
+    /// Inverse relationship to products using this category
+    @Relationship(deleteRule: .nullify)
+    var products: [Product]?
+    
     // MARK: Initializer
     
     init(id: UUID = UUID(), name: String, keywords: [String], defaultUnit: String? = nil) {
@@ -41,6 +48,7 @@ struct Category: Identifiable, Codable, Hashable {
         // Ensure all keywords are lowercase and unique for case-insensitive matching
         self.keywords = Array(Set(keywords.map { $0.lowercased() }))
         self.defaultUnit = defaultUnit
+        self.products = []
     }
 }
 

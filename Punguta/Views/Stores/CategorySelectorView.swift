@@ -38,12 +38,12 @@ struct CategorySelectorView: View {
                                 // Category icon
                                 ZStack {
                                     Circle()
-                                        .fill(categoryColor(for: category.name).opacity(0.15))
+                                        .fill(category.visualColor.opacity(0.15))
                                         .frame(width: 50, height: 50)
                                     
-                                    Image(systemName: categoryIcon(for: category.name))
+                                    Image(systemName: category.icon)
                                         .font(.system(size: 20, weight: .semibold))
-                                        .foregroundStyle(categoryColor(for: category.name))
+                                        .foregroundStyle(category.visualColor)
                                 }
                                 
                                 VStack(alignment: .leading, spacing: 2) {
@@ -62,7 +62,7 @@ struct CategorySelectorView: View {
                                 if selectedCategories.contains(category.id) {
                                     ZStack {
                                         Circle()
-                                            .fill(categoryColor(for: category.name).gradient)
+                                            .fill(category.visualColor.gradient)
                                             .frame(width: 32, height: 32)
                                         
                                         Image(systemName: "checkmark")
@@ -99,38 +99,6 @@ struct CategorySelectorView: View {
         }
     }
     
-    private func categoryColor(for categoryName: String) -> Color {
-        let colors: [Color] = [.purple, .pink, .indigo, .teal, .cyan, .mint, .orange, .green]
-        let index = abs(categoryName.hashValue) % colors.count
-        return colors[index]
-    }
-    
-    private func categoryIcon(for categoryName: String) -> String {
-        switch categoryName.lowercased() {
-        case "dairy": return "drop.fill"
-        case "produce": return "leaf.fill"
-        case "meat": return "flame.fill"
-        case "beverages": return "cup.and.saucer.fill"
-        case "bakery": return "birthday.cake.fill"
-        case "frozen": return "snowflake"
-        case "pantry": return "shippingbox.fill"
-        case "snacks": return "popcorn.fill"
-        case "personal care": return "heart.fill"
-        case "cleaning": return "sparkles"
-        case "medicine": return "pills.fill"
-        case "vitamins": return "leaf.circle.fill"
-        case "first aid": return "bandage.fill"
-        case "beauty": return "paintbrush.fill"
-        case "tools": return "hammer.fill"
-        case "hardware": return "wrench.and.screwdriver.fill"
-        case "paint": return "paintpalette.fill"
-        case "electrical": return "bolt.fill"
-        case "plumbing": return "drop.triangle.fill"
-        case "garden": return "tree.fill"
-        default: return "tag.fill"
-        }
-    }
-    
     private func toggleCategory(_ category: Category) {
         if let index = selectedCategories.firstIndex(of: category.id) {
             selectedCategories.remove(at: index)
@@ -142,7 +110,7 @@ struct CategorySelectorView: View {
 
 #Preview {
     CategorySelectorView(
-        availableCategories: Category.defaultCategories,
+        availableCategories: [],
         selectedCategories: .constant([])
     )
 }

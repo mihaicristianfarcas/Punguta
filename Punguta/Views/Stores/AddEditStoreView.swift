@@ -7,6 +7,7 @@
 
 import SwiftUI
 import MapKit
+import SwiftData
 
 // MARK: - Add Edit Store View
 
@@ -23,11 +24,17 @@ struct AddEditStoreView: View {
     // MARK: Environment
     
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    
+    // MARK: Queries
+    
+    /// All categories from SwiftData
+    @Query(sort: \Category.name) private var categories: [Category]
     
     // MARK: Properties
     
     /// View model managing stores and categories
-    @ObservedObject var viewModel: StoreViewModel
+    @ObservedObject var storeViewModel: StoreViewModel
     
     /// If editing, this contains the store to edit
     let storeToEdit: Store?
@@ -64,7 +71,7 @@ struct AddEditStoreView: View {
     
     /// Categories not yet added to the store (for Add Category dialog)
     private var availableCategories: [Category] {
-        viewModel.categories.filter { !selectedCategories.contains($0.id) }
+        categories.filter { !selectedCategories.contains($0.id) }
     }
     
     /// Form is valid when name is not empty, location is set, and at least one category is selected
@@ -76,8 +83,8 @@ struct AddEditStoreView: View {
     
     // MARK: Initializer
     
-    init(viewModel: StoreViewModel, storeToEdit: Store? = nil) {
-        self.viewModel = viewModel
+    init(storeViewModel: StoreViewModel, storeToEdit: Store? = nil) {
+        self.storeViewModel = storeViewModel
         self.storeToEdit = storeToEdit
         
         // Pre-populate form when editing
@@ -148,7 +155,7 @@ struct AddEditStoreView: View {
                             .padding(.vertical, AppTheme.Spacing.sm)
                     } else {
                         ForEach(Array(selectedCategories.enumerated()), id: \.element) { index, categoryId in
-                            if let category = viewModel.categories.first(where: { $0.id == categoryId }) {
+                            if let category = categories.first(where: { $0.id == categoryId }) {
                                 Text(category.name)
                             }
                         }
@@ -218,7 +225,7 @@ struct AddEditStoreView: View {
     /// Maps default category names to IDs from the ViewModel's category list
     private func updateDefaultCategories(for type: StoreType) {
         let categoryMap = Dictionary(uniqueKeysWithValues: 
-            viewModel.categories.map { ($0.name, $0.id) }
+            categories.map { ($0.name, $0.id) }
         )
         selectedCategories = type.defaultCategoryNames.compactMap { categoryMap[$0] }
     }
@@ -251,15 +258,15 @@ struct AddEditStoreView: View {
         
         if let existingStore = storeToEdit {
             // Update existing store
-            var updatedStore = existingStore
-            updatedStore.name = name
-            updatedStore.type = selectedType
-            updatedStore.location = location
-            updatedStore.categoryOrder = selectedCategories
-            viewModel.updateStore(updatedStore)
+            existingStore.name = name
+            existingStore.type = selectedType
+            existingStore.location = location
+            existingStore.categoryOrder = selectedCategories
+            
+            try? modelContext.save()
         } else {
             // Create new store
-            viewModel.createStore(
+            let newStore = storeViewModel.createStore(
                 name: name,
                 type: selectedType,
                 location: location,
@@ -273,11 +280,23 @@ struct AddEditStoreView: View {
 
 // MARK: - Previews
 #Preview("Add Store") {
-    AddEditStoreView(viewModel: StoreViewModel())
+    let modelContext = ModelContext(try! ModelContainer(for: Store.self, Category.self))
+    return AddEditStoreView(storeViewModel: StoreViewModel(modelContext: modelContext))
+        .modelContainer(try! ModelContainer(for: Store.self, Category.self))
 }
 
 #Preview("Edit Store") {
-    let viewModel = StoreViewModel()
-    let store = viewModel.stores.first!
-    return AddEditStoreView(viewModel: viewModel, storeToEdit: store)
+    let modelContext = ModelContext(try! ModelContainer(for: Store.self, Category.self))
+    let storeViewModel = StoreViewModel(modelContext: modelContext)
+    let store = storeViewModel.createStore(
+        name: "Sample Store",
+        type: .grocery,
+        location: StoreLocation(
+            coordinate: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
+            address: "123 Main St"
+        ),
+        categoryOrder: []
+    )
+    return AddEditStoreView(storeViewModel: storeViewModel, storeToEdit: store)
+        .modelContainer(try! ModelContainer(for: Store.self, Category.self))
 }

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftData
 
 // MARK: - Product Quantity
 
@@ -47,52 +48,58 @@ struct ProductQuantity: Codable, Hashable {
 /// **Design Decision**: Products are global entities, not list-specific
 /// - When a product is checked/unchecked, the state is reflected across all lists
 /// - This allows tracking what you've already purchased across multiple shopping trips
-/// - Multiple lists can reference the same product
-struct Product: Identifiable, Codable, Hashable {
+/// - Multiple lists can reference the same product via ShoppingListItem junction
+@Model
+final class Product {
     
     // MARK: Properties
     
     /// Unique identifier for the product
-    let id: UUID
+    @Attribute(.unique) var id: UUID
     
     /// Display name of the product (e.g., "Milk", "Bananas")
     var name: String
     
-    /// Reference to the category this product belongs to
-    var categoryId: UUID
-    
-    /// The quantity needed (amount + unit)
+    /// The quantity needed (amount + unit) - stored as Codable
     var quantity: ProductQuantity
     
     /// When the product was first created
-    let createdAt: Date
+    var createdAt: Date
     
     /// Last modification timestamp
     var updatedAt: Date
+    
+    /// Relationship to the category this product belongs to
+    var category: Category?
+    
+    /// Inverse relationship to shopping list items
+    @Relationship(deleteRule: .cascade)
+    var listItems: [ShoppingListItem]?
     
     // MARK: Initializer
     
     init(
         id: UUID = UUID(),
         name: String,
-        categoryId: UUID,
+        category: Category? = nil,
         quantity: ProductQuantity,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
         self.id = id
         self.name = name
-        self.categoryId = categoryId
+        self.category = category
         self.quantity = quantity
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.listItems = []
     }
     
     // MARK: Mutations
     
     /// Update the product quantity and timestamp
     /// - Parameter newQuantity: The new quantity to set
-    mutating func updateQuantity(_ newQuantity: ProductQuantity) {
+    func updateQuantity(_ newQuantity: ProductQuantity) {
         quantity = newQuantity
         updatedAt = Date()
     }

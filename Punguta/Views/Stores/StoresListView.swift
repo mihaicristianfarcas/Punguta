@@ -7,6 +7,7 @@
 
 import SwiftUI
 import MapKit
+import SwiftData
 
 // MARK: - Stores List View
 
@@ -19,10 +20,19 @@ import MapKit
 /// - Empty state with call-to-action
 struct StoresListView: View {
     
+    // MARK: Environment
+    
+    @Environment(\.modelContext) private var modelContext
+    
+    // MARK: Queries
+    
+    /// All stores from SwiftData
+    @Query(sort: \Store.name) private var allStores: [Store]
+    
     // MARK: Properties
     
     /// View model managing stores
-    @StateObject private var viewModel = StoreViewModel()
+    @ObservedObject var storeViewModel: StoreViewModel
     
     /// View model managing products
     @ObservedObject var productViewModel: ProductViewModel
@@ -53,16 +63,16 @@ struct StoresListView: View {
     /// Stores filtered by search and type
     /// Sorted alphabetically by name
     private var filteredStores: [Store] {
-        // Start with all stores
-        let allStores: [Store] = viewModel.stores
+        // Start with all stores from SwiftData query
+        let stores = allStores
 
         // Apply search filter
         let searchFiltered: [Store]
         if searchText.isEmpty {
-            searchFiltered = allStores
+            searchFiltered = stores
         } else {
             let query = searchText.lowercased()
-            searchFiltered = allStores.filter { store in
+            searchFiltered = stores.filter { store in
                 let nameMatch = store.name.lowercased().contains(query)
                 let addressText = store.location.address?.lowercased() ?? ""
                 let addressMatch = addressText.contains(query)
@@ -128,7 +138,7 @@ struct StoresListView: View {
                     
                     // Stores or empty states
                     if filteredStores.isEmpty {
-                        if viewModel.stores.isEmpty {
+                        if allStores.isEmpty {
                             Section {
                                 EmptyStateView(
                                     icon: "storefront",
@@ -159,10 +169,9 @@ struct StoresListView: View {
                             if let storesOfType = storesByType[storeType], !storesOfType.isEmpty {
                                 Section {
                                     ForEach(storesOfType) { store in
-                                        NavigationLink(destination: StoreDetailView(store: store, viewModel: viewModel, productViewModel: productViewModel, listViewModel: listViewModel)) {
+                                        NavigationLink(destination: StoreDetailView(store: store, storeViewModel: storeViewModel, productViewModel: productViewModel, listViewModel: listViewModel)) {
                                             StoreRowView(
                                                 store: store,
-                                                viewModel: viewModel,
                                                 onEdit: { storeToEdit = store },
                                                 onDelete: {
                                                     storeToDelete = store
@@ -216,10 +225,10 @@ struct StoresListView: View {
             }
         }
         .sheet(isPresented: $showingAddStore) {
-            AddEditStoreView(viewModel: viewModel)
+            AddEditStoreView(storeViewModel: storeViewModel)
         }
         .sheet(item: $storeToEdit) { store in
-            AddEditStoreView(viewModel: viewModel, storeToEdit: store)
+            AddEditStoreView(storeViewModel: storeViewModel, storeToEdit: store)
         }
         .alert(
             "Delete Store",
@@ -231,7 +240,8 @@ struct StoresListView: View {
             }
             Button("Delete", role: .destructive) {
                 withAnimation {
-                    viewModel.deleteStore(store)
+                    modelContext.delete(store)
+                    try? modelContext.save()
                 }
                 storeToDelete = nil
             }
@@ -299,7 +309,6 @@ struct StoresListView: View {
         // MARK: Properties
         
         let store: Store
-        let viewModel: StoreViewModel
         let onEdit: () -> Void
         let onDelete: () -> Void
         
@@ -344,6 +353,10 @@ struct StoresListView: View {
 // MARK: - Preview
 
 #Preview {
-    StoresListView(productViewModel: ProductViewModel(), listViewModel: ListViewModel())
+    let modelContext = ModelContext(try! ModelContainer(for: Store.self, Product.self, Category.self))
+    return StoresListView(
+        storeViewModel: StoreViewModel(modelContext: modelContext), 
+        productViewModel: ProductViewModel(modelContext: modelContext), 
+        listViewModel: ListViewModel(modelContext: modelContext)
+    )
 }
-

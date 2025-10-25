@@ -7,6 +7,7 @@
 
 import Foundation
 import CoreLocation
+import SwiftData
 
 // MARK: - Store Type
 
@@ -84,12 +85,13 @@ struct StoreLocation: Codable, Hashable {
 /// - Each store has a specific type (grocery, pharmacy, etc.)
 /// - Maintains a custom category order matching the store's physical layout
 /// - Helps organize shopping by showing products in the order you'll encounter them
-struct Store: Identifiable, Codable, Hashable {
+@Model
+final class Store {
     
     // MARK: Properties
     
     /// Unique identifier for the store
-    let id: UUID
+    @Attribute(.unique) var id: UUID
     
     /// Display name of the store (e.g., "Whole Foods", "CVS Pharmacy")
     var name: String
@@ -97,7 +99,7 @@ struct Store: Identifiable, Codable, Hashable {
     /// Type of store, determines default categories
     var type: StoreType
     
-    /// Geographic location of the store
+    /// Geographic location of the store - stored as Codable
     var location: StoreLocation
     
     /// Ordered array of category IDs representing store layout
@@ -152,21 +154,21 @@ struct Store: Identifiable, Codable, Hashable {
     /// Add a new category to the store's category order
     /// - Parameter categoryId: The category ID to add
     /// - Note: Does nothing if category already exists
-    mutating func addCategory(_ categoryId: UUID) {
+    func addCategory(_ categoryId: UUID) {
         guard !categoryOrder.contains(categoryId) else { return }
         categoryOrder.append(categoryId)
     }
     
     /// Remove a category from the store's category order
     /// - Parameter categoryId: The category ID to remove
-    mutating func removeCategory(_ categoryId: UUID) {
+    func removeCategory(_ categoryId: UUID) {
         categoryOrder.removeAll { $0 == categoryId }
     }
     
     /// Replace the entire category order with a new arrangement
     /// - Parameter newOrder: The new category order
     /// - Note: Used when user manually reorders categories
-    mutating func reorderCategories(_ newOrder: [UUID]) {
+    func reorderCategories(_ newOrder: [UUID]) {
         categoryOrder = newOrder
     }
 }

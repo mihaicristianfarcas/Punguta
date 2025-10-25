@@ -70,10 +70,7 @@ struct InteractiveProductCardManaged: View {
     @ObservedObject var listViewModel: ListViewModel
     
     private var isChecked: Bool {
-        guard let list = listViewModel.shoppingLists.first(where: { $0.id == listId }) else {
-            return false
-        }
-        return list.isProductChecked(product.id)
+        listViewModel.isProductChecked(product, in: listId)
     }
     
     var body: some View {
@@ -81,7 +78,7 @@ struct InteractiveProductCardManaged: View {
             product: product,
             isChecked: isChecked,
             onToggle: {
-                ListHelpers.toggleProductChecked(productId: product.id, in: listId, using: listViewModel)
+                listViewModel.toggleProductChecked(product, in: listId)
             }
         )
     }
@@ -117,12 +114,14 @@ private struct SwipeActionsModifier: ViewModifier {
 // MARK: - Preview
 
 #Preview("Unchecked") {
+    let product = Product(
+        name: "Milk",
+        category: nil,
+        quantity: ProductQuantity(amount: 2, unit: "kg")
+    )
+    
     InteractiveProductCard(
-        product: Product(
-            name: "Milk",
-            categoryId: UUID(),
-            quantity: ProductQuantity(amount: 2, unit: "kg"),
-        ),
+        product: product,
         isChecked: false,
         onToggle: {},
         onEdit: {},

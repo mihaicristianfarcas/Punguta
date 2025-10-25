@@ -74,13 +74,16 @@ struct StoreProductView {
         
         // Filter products that belong to categories in this store
         let storeCategories = Set(store.categoryOrder)
-        let filteredProducts = products.filter { storeCategories.contains($0.categoryId) }
+        let filteredProducts = products.filter { product in
+            guard let categoryId = product.category?.id else { return false }
+            return storeCategories.contains(categoryId)
+        }
         
         // Group products by category, maintaining store's category order
         var productsByCategory: [CategoryProductGroup] = []
         
         for categoryId in store.categoryOrder {
-            let categoryProducts = filteredProducts.filter { $0.categoryId == categoryId }
+            let categoryProducts = filteredProducts.filter { $0.category?.id == categoryId }
             
             // Only include categories that have products
             if !categoryProducts.isEmpty, let category = categoryMap[categoryId] {

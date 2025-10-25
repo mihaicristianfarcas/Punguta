@@ -1,13 +1,14 @@
 //
-//  ListsView.swift
+//  ListsListView.swift
 //  Punguta
 //
 //  Created by Mihai-Cristian Farcas on 21.10.2025.
 //
 
 import SwiftUI
+import SwiftData
 
-// MARK: - Lists View
+// MARK: - Lists List View
 
 /// Main view for browsing and managing shopping lists
 ///
@@ -16,16 +17,19 @@ import SwiftUI
 /// - CRUD operations (Create, Read, Update, Delete)
 /// - Swipe actions for quick edit/delete
 /// - Empty state with call-to-action
-/// - Coordination between ListViewModel and ProductViewModel
-struct ListsView: View {
+/// - Uses SwiftData @Query for automatic updates
+struct ListsListView: View {
     
     // MARK: Properties
+    
+    /// List view model for operations
+    @ObservedObject var listViewModel: ListViewModel
     
     /// Product view model for accessing products
     @ObservedObject var productViewModel: ProductViewModel
     
-    /// Shared view model managing lists
-    @EnvironmentObject private var viewModel: ListViewModel
+    /// All shopping lists from SwiftData
+    @Query(sort: \ShoppingList.updatedAt, order: .reverse) private var allLists: [ShoppingList]
     
     /// Controls add list sheet visibility
     @State private var showingAddList = false
@@ -54,9 +58,8 @@ struct ListsView: View {
     // MARK: Computed Properties
     
     /// Lists filtered by search and status
-    /// Sorted by most recently updated
     private var filteredLists: [ShoppingList] {
-        var filtered = viewModel.shoppingLists
+        var filtered = allLists
         
         // Apply search filter
         if !searchText.isEmpty {
@@ -68,10 +71,8 @@ struct ListsView: View {
         // Apply status filter
         if let status = selectedStatusFilter {
             filtered = filtered.filter { list in
-                let products = list.productIds.compactMap { id in
-                    productViewModel.products.first { $0.id == id }
-                }
-                let completedCount = list.checkedProductIds.count
+                let products = list.products
+                let completedCount = list.checkedProducts.count
                 
                 switch status {
                 case .active:
@@ -82,7 +83,7 @@ struct ListsView: View {
             }
         }
         
-        return filtered.sorted { $0.updatedAt > $1.updatedAt }
+        return filtered
     }
     
     // MARK: Body
@@ -107,7 +108,7 @@ struct ListsView: View {
                     
                     // Lists or empty states
                     if filteredLists.isEmpty {
-                        if viewModel.shoppingLists.isEmpty {
+                        if allLists.isEmpty {
                             Section {
                                 EmptyStateView(
                                     icon: "list.clipboard",
@@ -130,22 +131,14 @@ struct ListsView: View {
                         Section {
                             ForEach(filteredLists) { list in
                                 NavigationLink(destination: ListDetailView(
-                                    listId: list.id,
+                                    list: list,
                                     productViewModel: productViewModel,
-                                    listViewModel: viewModel
+                                    listViewModel: listViewModel
                                 )) {
-                                    ListRowView(
-                                        list: list,
-                                        productViewModel: productViewModel,
-                                        onEdit: { listToEdit = list },
-                                        onDelete: {
-                                            listToDelete = list
-                                            showingDeleteConfirmation = true
-                                        }
-                                    )
+                                    ListRowView(list: list)
                                 }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    Button() {
+                                    Button {
                                         listToDelete = list
                                         showingDeleteConfirmation = true
                                     } label: {
@@ -180,10 +173,10 @@ struct ListsView: View {
                 }
             }
             .sheet(isPresented: $showingAddList) {
-                AddEditListView(listViewModel: viewModel, productViewModel: productViewModel)
+                AddEditListView(listViewModel: listViewModel, productViewModel: productViewModel)
             }
             .sheet(item: $listToEdit) { list in
-                AddEditListView(listViewModel: viewModel, productViewModel: productViewModel, listToEdit: list)
+                AddEditListView(listViewModel: listViewModel, productViewModel: productViewModel, listToEdit: list)
             }
             .alert(
                 "Delete List",
@@ -195,7 +188,7 @@ struct ListsView: View {
                 }
                 Button("Delete", role: .destructive) {
                     withAnimation {
-                        viewModel.deleteList(list)
+                        listViewModel.deleteList(list)
                     }
                     listToDelete = nil
                 }
@@ -272,22 +265,17 @@ struct ListsView: View {
         // MARK: Properties
         
         let list: ShoppingList
-        let productViewModel: ProductViewModel
-        let onEdit: () -> Void
-        let onDelete: () -> Void
         
         // MARK: Computed Properties
         
         /// All products in this list
         private var products: [Product] {
-            list.productIds.compactMap { id in
-                productViewModel.products.first { $0.id == id }
-            }
+            list.products
         }
         
         /// Number of completed products
         private var completedCount: Int {
-            list.checkedProductIds.count
+            list.checkedProducts.count
         }
         
         /// Color for the list icon
@@ -352,7 +340,16 @@ struct ListsView: View {
 // MARK: - Preview
 
 #Preview {
-    ListsView(productViewModel: ProductViewModel())
-        .environmentObject(ListViewModel())
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(
+        for: Category.self, Product.self, ShoppingList.self, ShoppingListItem.self, Store.self,
+        configurations: config
+    )
+    let context = ModelContext(container)
+    
+    return ListsListView(
+        listViewModel: ListViewModel(modelContext: context),
+        productViewModel: ProductViewModel(modelContext: context)
+    )
+    .modelContainer(container)
 }
-

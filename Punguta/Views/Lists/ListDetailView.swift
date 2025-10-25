@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 // MARK: - List Detail View
 
@@ -21,7 +22,7 @@ struct ListDetailView: View {
     // MARK: Properties
     
     /// The shopping list being displayed
-    let listId: UUID
+    @Bindable var list: ShoppingList
     
     /// View model managing products
     @ObservedObject var productViewModel: ProductViewModel
@@ -29,12 +30,11 @@ struct ListDetailView: View {
     /// View model managing lists
     @ObservedObject var listViewModel: ListViewModel
     
-    // MARK: Computed Properties
+    /// All categories from SwiftData
+    @Query private var categories: [Category]
     
-    /// The current list from the view model (always up-to-date)
-    private var list: ShoppingList {
-        listViewModel.shoppingLists.first(where: { $0.id == listId }) ?? ShoppingList(name: "Unknown", productIds: [])
-    }
+    /// All products from SwiftData
+    @Query(sort: \Product.name) private var allProducts: [Product]
     
     // MARK: Sheet State
     
@@ -47,25 +47,22 @@ struct ListDetailView: View {
     /// Product being edited (triggers edit sheet when set)
     @State private var productToEdit: Product?
     
-    /// Product pending deletion (used in confirmation alert)
-    @State private var productToDelete: Product?
+    /// Item pending deletion (used in confirmation alert)
+    @State private var itemToDelete: ShoppingListItem?
     
     /// Controls display of delete confirmation alert
     @State private var showingDeleteConfirmation = false
     
     // MARK: Computed Properties
     
-    /// Resolves product IDs to actual Product objects
-    /// Filters out any invalid IDs (products that may have been deleted)
+    /// Products in this list
     private var products: [Product] {
-        list.productIds.compactMap { id in
-            productViewModel.products.first { $0.id == id }
-        }
+        list.products
     }
     
     /// Number of checked/completed products in this list
     private var completedCount: Int {
-        list.checkedProductIds.count
+        list.checkedProducts.count
     }
     
     /// Completion percentage (0.0 to 1.0) for progress bar
@@ -99,20 +96,24 @@ struct ListDetailView: View {
                         .listRowInsets(EdgeInsets())
                         .listRowSeparator(.hidden)
                 } else {
-                    ForEach(products) { product in
-                        InteractiveProductCard(
-                            product: product,
-                            isChecked: list.isProductChecked(product.id),
-                            onToggle: { toggleProduct(product) },
-                            onEdit: { productToEdit = product },
-                            onDelete: {
-                                productToDelete = product
-                                showingDeleteConfirmation = true
-                            }
-                        )
-                        .listRowInsets(EdgeInsets(top: AppTheme.Spacing.xs, leading: AppTheme.Spacing.md, bottom: AppTheme.Spacing.xs, trailing: AppTheme.Spacing.md))
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
+                    ForEach(list.items ?? []) { item in
+                        if let product = item.product {
+                            InteractiveProductCard(
+                                product: product,
+                                isChecked: item.isChecked,
+                                onToggle: { 
+                                    listViewModel.toggleProductChecked(product, in: list)
+                                },
+                                onEdit: { productToEdit = product },
+                                onDelete: {
+                                    itemToDelete = item
+                                    showingDeleteConfirmation = true
+                                }
+                            )
+                            .listRowInsets(EdgeInsets(top: AppTheme.Spacing.xs, leading: AppTheme.Spacing.md, bottom: AppTheme.Spacing.xs, trailing: AppTheme.Spacing.md))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                        }
                     }
                 }
             } header: {
@@ -163,38 +164,28 @@ struct ListDetailView: View {
         // Sheet for creating a new product
         .sheet(isPresented: $showingAddProduct) {
             AddEditProductView(
-                viewModel: productViewModel,
-                categories: Category.defaultCategories,
-                onProductCreated: { productId in
+                productViewModel: productViewModel,
+                onProductCreated: { product in
                     // Add the newly created product to this list
-                    var updatedList = list
-                    updatedList.addProduct(productId)
-                    listViewModel.updateList(updatedList)
+                    listViewModel.addProduct(product, to: list)
                 }
             )
         }
         // Sheet for editing an existing product
         .sheet(item: $productToEdit) { product in
             AddEditProductView(
-                viewModel: productViewModel,
-                categories: Category.defaultCategories,
+                productViewModel: productViewModel,
                 productToEdit: product
             )
         }
         // Sheet for selecting existing products to add to this list
         .sheet(isPresented: $showingProductPicker) {
             ProductPickerView(
-                selectedProductIds: Binding(
-                    get: { list.productIds },
-                    set: { newIds in
-                        var updatedList = list
-                        updatedList.productIds = newIds
-                        updatedList.updatedAt = Date()
-                        listViewModel.updateList(updatedList)
-                    }
-                ),
-                availableProducts: productViewModel.products,
-                productViewModel: productViewModel
+                list: list,
+                availableProducts: allProducts,
+                productViewModel: productViewModel,
+                listViewModel: listViewModel,
+                categories: categories
             )
         }
         // MARK: Alert
@@ -202,41 +193,36 @@ struct ListDetailView: View {
         .alert(
             "Remove Product",
             isPresented: $showingDeleteConfirmation,
-            presenting: productToDelete
-        ) { product in
+            presenting: itemToDelete
+        ) { item in
             Button("Cancel", role: .cancel) {
-                productToDelete = nil
+                itemToDelete = nil
             }
             Button("Remove", role: .destructive) {
-                removeProduct(product)
-                productToDelete = nil
+                if let item = itemToDelete {
+                    listViewModel.removeItem(item, from: list)
+                }
+                itemToDelete = nil
             }
-        } message: { product in
-            Text("Remove '\(product.name)' from this list?")
+        } message: { item in
+            if let productName = item.product?.name {
+                Text("Remove '\(productName)' from this list?")
+            }
         }
     }
         
-        // MARK: - Helper Methods
-        
-        /// Toggles the checked state of a product in this list
-        private func toggleProduct(_ product: Product) {
-            ListHelpers.toggleProductChecked(productId: product.id, in: list.id, using: listViewModel)
+    // MARK: - Helper Methods
+    
+    /// Clears all checked items from the list
+    /// Unmarks all checked products so the list can be reused
+    private func clearCheckedItems() {
+        guard let items = list.items else { return }
+        for item in items where item.isChecked {
+            item.isChecked = false
         }
-        
-        /// Clears all checked items from the list
-        /// Unmarks all checked products so the list can be reused
-        private func clearCheckedItems() {
-            ListHelpers.clearCheckedItems(listId: list.id, in: listViewModel)
-        }
-        
-        /// Removes a product from this list (but doesn't delete the product globally)
-        /// Updates the list's product IDs and timestamp
-        private func removeProduct(_ product: Product) {
-            var updatedList = list
-            updatedList.removeProduct(product.id)
-            listViewModel.updateList(updatedList)
-        }
+        listViewModel.updateList(list)
     }
+}
 
 // MARK: - Product Picker View
 
@@ -244,20 +230,25 @@ struct ListDetailView: View {
 private struct ProductPickerView: View {
     @Environment(\.dismiss) private var dismiss
     
-    @Binding var selectedProductIds: [UUID]
+    @Bindable var list: ShoppingList
     let availableProducts: [Product]
     let productViewModel: ProductViewModel
+    let listViewModel: ListViewModel
+    let categories: [Category]
     
     @State private var searchText = ""
     @State private var showingAddProduct = false
     
     private var filteredProducts: [Product] {
         if searchText.isEmpty {
-            return availableProducts.sorted { $0.name < $1.name }
+            return availableProducts
         }
         return availableProducts
             .filter { $0.name.localizedCaseInsensitiveContains(searchText) }
-            .sorted { $0.name < $1.name }
+    }
+    
+    private var selectedProductIds: Set<UUID> {
+        Set(list.products.map { $0.id })
     }
     
     var body: some View {
@@ -332,11 +323,10 @@ private struct ProductPickerView: View {
             }
             .sheet(isPresented: $showingAddProduct) {
                 AddEditProductView(
-                    viewModel: productViewModel,
-                    categories: Category.defaultCategories,
-                    onProductCreated: { productId in
-                        // Automatically select the newly created product
-                        selectedProductIds.append(productId)
+                    productViewModel: productViewModel,
+                    onProductCreated: { product in
+                        // Automatically add the newly created product
+                        listViewModel.addProduct(product, to: list)
                     }
                 )
             }
@@ -344,10 +334,10 @@ private struct ProductPickerView: View {
     }
     
     private func toggleProduct(_ product: Product) {
-        if let index = selectedProductIds.firstIndex(of: product.id) {
-            selectedProductIds.remove(at: index)
+        if selectedProductIds.contains(product.id) {
+            listViewModel.removeProduct(product, from: list)
         } else {
-            selectedProductIds.append(product.id)
+            listViewModel.addProduct(product, to: list)
         }
     }
 }
@@ -465,13 +455,32 @@ private struct EmptyProductsState: View {
 
 // MARK: - Preview
 #Preview {
-    let productViewModel = ProductViewModel()
-    let listViewModel = ListViewModel()
-    listViewModel.initializeSampleLists(with: productViewModel.products)
-    let list = listViewModel.shoppingLists.first!
-    return ListDetailView(
-        listId: list.id,
-        productViewModel: productViewModel,
-        listViewModel: listViewModel
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(
+        for: Category.self, Product.self, ShoppingList.self, ShoppingListItem.self, Store.self,
+        configurations: config
     )
+    let context = ModelContext(container)
+    
+    // Create sample data
+    let category = Category(name: "Produce", keywords: ["apple"], defaultUnit: "kg")
+    context.insert(category)
+    
+    let product = Product(name: "Apples", category: category, quantity: ProductQuantity(amount: 1, unit: "kg"))
+    context.insert(product)
+    
+    let list = ShoppingList(name: "Weekly Groceries")
+    context.insert(list)
+    list.addProduct(product)
+    
+    try? context.save()
+    
+    return NavigationStack {
+        ListDetailView(
+            list: list,
+            productViewModel: ProductViewModel(modelContext: context),
+            listViewModel: ListViewModel(modelContext: context)
+        )
+    }
+    .modelContainer(container)
 }
