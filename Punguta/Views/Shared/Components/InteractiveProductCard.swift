@@ -52,8 +52,9 @@ struct InteractiveProductCard: View {
             
             Spacer()
         }
-        .padding(AppTheme.Spacing.md)
-        .background(Color(.systemBackground))
+        .padding(.vertical, AppTheme.Spacing.xs)
+        .padding(.horizontal, AppTheme.Spacing.md)
+//        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.CornerRadius.md))
         .contentShape(Rectangle())
         .modifier(SwipeActionsModifier(onEdit: onEdit, onDelete: onDelete))

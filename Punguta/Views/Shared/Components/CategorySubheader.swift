@@ -36,8 +36,8 @@ struct CategorySubheader: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, AppTheme.Spacing.md)
         .padding(.vertical, AppTheme.Spacing.xs)
+        .padding(.horizontal, AppTheme.Spacing.sm)
     }
 }
 

@@ -106,32 +106,13 @@ struct StoreDetailView: View {
                 }
             } else {
                 ForEach(listsWithStoreProducts, id: \.list.id) { listItem in
+                    // Get all products for this list at this store
+                    let allProducts = listItem.categorizedProducts.flatMap { $0.products }
+                    
+                    // List section header
                     Section {
-                        // Products grouped by category
-                        ForEach(listItem.categorizedProducts, id: \.category.id) { categoryItem in
-                            // Category header
-                            CategorySubheader(
-                                category: categoryItem.category,
-                                itemCount: categoryItem.products.count
-                            )
-                            .listRowInsets(EdgeInsets())
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
-                            
-                            // Products in this category
-                            ForEach(categoryItem.products) { product in
-                                InteractiveProductCardManaged(
-                                    product: product,
-                                    listId: listItem.list.id,
-                                    listViewModel: listViewModel
-                                )
-                                .listRowInsets(EdgeInsets(top: AppTheme.Spacing.xs, leading: AppTheme.Spacing.md, bottom: AppTheme.Spacing.xs, trailing: AppTheme.Spacing.md))
-                                .listRowSeparator(.hidden)
-                                .listRowBackground(Color.clear)
-                            }
-                        }
+                        EmptyView()
                     } header: {
-                        let allProducts = listItem.categorizedProducts.flatMap { $0.products }
                         ListSectionHeader(
                             list: listItem.list,
                             products: allProducts,
@@ -139,10 +120,26 @@ struct StoreDetailView: View {
                             onUncheckAll: { clearCheckedItems(for: listItem.list) }
                         )
                     }
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    
+                    // Products list component (creates its own sections)
+                    ProductsListComponent(
+                        categories: orderedCategories,
+                        products: allProducts,
+                        categoryOrder: store.categoryOrder,
+                        areProductsCheckable: true,
+                        isProductChecked: { product in
+                            listViewModel.isProductChecked(product, in: listItem.list.id)
+                        },
+                        onToggle: { product in
+                            listViewModel.toggleProductChecked(product, in: listItem.list.id)
+                        }
+                    )
                 }
             }
         }
-        .listStyle(.plain)
+        .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
         .background(Color(.systemGroupedBackground))
         .navigationTitle(store.name)

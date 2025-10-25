@@ -90,50 +90,18 @@ struct ListDetailView: View {
             .listRowBackground(Color.clear)
             
             // MARK: Products Section
-            Section {
-                if products.isEmpty {
+            if products.isEmpty {
+                Section {
                     EmptyProductsState()
                         .listRowInsets(EdgeInsets())
                         .listRowSeparator(.hidden)
-                } else {
-                    ForEach(list.items ?? []) { item in
-                        if let product = item.product {
-                            InteractiveProductCard(
-                                product: product,
-                                isChecked: item.isChecked,
-                                onToggle: { 
-                                    listViewModel.toggleProductChecked(product, in: list)
-                                },
-                                onEdit: { productToEdit = product },
-                                onDelete: {
-                                    itemToDelete = item
-                                    showingDeleteConfirmation = true
-                                }
-                            )
-                            .listRowInsets(EdgeInsets(top: AppTheme.Spacing.xs, leading: AppTheme.Spacing.md, bottom: AppTheme.Spacing.xs, trailing: AppTheme.Spacing.md))
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
-                        }
-                    }
-                }
-            } header: {
-                HStack {
-                    Text("Products")
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                    
-                    Spacer()
-                    
-                    HStack(spacing: AppTheme.Spacing.lg) {
-                        // Clear Checked Items Button
-                        if completedCount > 0 {
-                            Button(action: clearCheckedItems) {
-                                Text("Uncheck All")
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(.red)
-                            }
-                        }
+                } header: {
+                    HStack {
+                        Text("Products")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        
+                        Spacer()
                         
                         // Add Product Menu
                         Menu {
@@ -150,12 +118,79 @@ struct ListDetailView: View {
                                 .fontWeight(.medium)
                                 .foregroundStyle(.blue)
                         }
+                        .textCase(nil)
                     }
-                    .textCase(nil)
                 }
+            } else {
+                // Header section with buttons
+                Section {
+                    EmptyView()
+                } header: {
+                    HStack {
+                        Text("Products")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        
+                        Spacer()
+                        
+                        HStack(spacing: AppTheme.Spacing.lg) {
+                            // Clear Checked Items Button
+                            if completedCount > 0 {
+                                Button(action: clearCheckedItems) {
+                                    Text("Uncheck All")
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                        .foregroundStyle(.red)
+                                }
+                            }
+                            
+                            // Add Product Menu
+                            Menu {
+                                Button(action: { showingAddProduct = true }) {
+                                    Label("Create New", systemImage: "plus")
+                                }
+                                
+                                Button(action: { showingProductPicker = true }) {
+                                    Label("Add Existing", systemImage: "list.bullet")
+                                }
+                            } label: {
+                                Text("Add")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(.blue)
+                            }
+                        }
+                        .textCase(nil)
+                    }
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                
+                // Products list component (creates its own sections)
+                ProductsListComponent(
+                    categories: categories,
+                    products: products,
+                    categoryOrder: nil,
+                    areProductsCheckable: true,
+                    isProductChecked: { product in
+                        list.items?.first(where: { $0.product?.id == product.id })?.isChecked ?? false
+                    },
+                    onToggle: { product in
+                        listViewModel.toggleProductChecked(product, in: list)
+                    },
+                    onEdit: { product in
+                        productToEdit = product
+                    },
+                    onDelete: { product in
+                        if let item = list.items?.first(where: { $0.product?.id == product.id }) {
+                            itemToDelete = item
+                            showingDeleteConfirmation = true
+                        }
+                    }
+                )
             }
         }
-        .listStyle(.plain)
+        .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
         .background(Color(.systemGroupedBackground))
         .navigationTitle(list.name)

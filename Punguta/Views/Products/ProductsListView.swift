@@ -123,28 +123,19 @@ struct ProductsListView: View {
                         }
                     } else {
                         // Products grouped by category
-                        ForEach(categoriesWithProducts) { category in
-                            Section {
-                                ForEach(productsByCategory[category] ?? []) { product in
-                                    ProductRowView(
-                                        product: product,
-                                        category: category,
-                                        onEdit: { productToEdit = product },
-                                        onDelete: {
-                                            productToDelete = product
-                                            showingDeleteConfirmation = true
-                                        }
-                                    )
-                                }
-                            } header: {
-                                HStack {
-                                    Image(systemName: category.icon)
-                                        .foregroundStyle(category.visualColor)
-                                    Text(category.name)
-                                }
-                                .font(.headline)
+                        ProductsListComponent(
+                            categories: categories,
+                            products: filteredProducts,
+                            categoryOrder: nil,
+                            areProductsCheckable: false,
+                            onEdit: { product in
+                                productToEdit = product
+                            },
+                            onDelete: { product in
+                                productToDelete = product
+                                showingDeleteConfirmation = true
                             }
-                        }
+                        )
                     }
                 }
                 .listStyle(.insetGrouped)
@@ -280,7 +271,8 @@ private struct CategoryFilterSection: View {
                         )
                     }
                 }
-                .padding(AppTheme.Spacing.sm)
+                .padding(.horizontal, AppTheme.Spacing.sm)
+                .padding(.vertical, AppTheme.Spacing.xs)
             }
         }
         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
