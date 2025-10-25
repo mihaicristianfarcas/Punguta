@@ -41,9 +41,6 @@ struct ListDetailView: View {
     /// Controls display of the product picker sheet (select existing products)
     @State private var showingProductPicker = false
     
-    /// Controls display of the add new product sheet
-    @State private var showingAddProduct = false
-    
     /// Product being edited (triggers edit sheet when set)
     @State private var productToEdit: Product?
     
@@ -103,15 +100,9 @@ struct ListDetailView: View {
                         
                         Spacer()
                         
-                        // Add Product Menu
-                        Menu {
-                            Button(action: { showingAddProduct = true }) {
-                                Label("Create New", systemImage: "plus")
-                            }
-                            
-                            Button(action: { showingProductPicker = true }) {
-                                Label("Add Existing", systemImage: "list.bullet")
-                            }
+                        // Add Product Button
+                        Button {
+                            showingProductPicker = true
                         } label: {
                             Text("Add")
                                 .font(.subheadline)
@@ -144,15 +135,9 @@ struct ListDetailView: View {
                                 }
                             }
                             
-                            // Add Product Menu
-                            Menu {
-                                Button(action: { showingAddProduct = true }) {
-                                    Label("Create New", systemImage: "plus")
-                                }
-                                
-                                Button(action: { showingProductPicker = true }) {
-                                    Label("Add Existing", systemImage: "list.bullet")
-                                }
+                            // Add Product Button
+                            Button {
+                                showingProductPicker = true
                             } label: {
                                 Text("Add")
                                     .font(.subheadline)
@@ -196,16 +181,6 @@ struct ListDetailView: View {
         .navigationTitle(list.name)
         .navigationBarTitleDisplayMode(.inline)
         // MARK: Sheets
-        // Sheet for creating a new product
-        .sheet(isPresented: $showingAddProduct) {
-            AddEditProductView(
-                productViewModel: productViewModel,
-                onProductCreated: { product in
-                    // Add the newly created product to this list
-                    listViewModel.addProduct(product, to: list)
-                }
-            )
-        }
         // Sheet for editing an existing product
         .sheet(item: $productToEdit) { product in
             AddEditProductView(
