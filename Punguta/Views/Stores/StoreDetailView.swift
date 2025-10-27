@@ -55,6 +55,40 @@ struct StoreDetailView: View {
         }
     }
     
+    /// All products across all lists that are available at this store
+    private var allStoreProducts: [Product] {
+        let allProducts = allShoppingLists.flatMap { $0.products }
+        return allProducts.filter { product in
+            if let categoryId = product.category?.id {
+                return store.categoryOrder.contains(categoryId)
+            }
+            return false
+        }
+    }
+    
+    /// Number of checked/completed products at this store across all lists
+    private var completedCount: Int {
+        allShoppingLists.reduce(0) { total, list in
+            let storeProducts = list.products.filter { product in
+                if let categoryId = product.category?.id {
+                    return store.categoryOrder.contains(categoryId)
+                }
+                return false
+            }
+            let checkedCount = storeProducts.filter { product in
+                listViewModel.isProductChecked(product, in: list.id)
+            }.count
+            return total + checkedCount
+        }
+    }
+    
+    /// Completion percentage (0.0 to 1.0) for progress bar
+    /// Returns 0 if list is empty to avoid division by zero
+    private var progressPercentage: Double {
+        guard !allStoreProducts.isEmpty else { return 0 }
+        return Double(completedCount) / Double(allStoreProducts.count)
+    }
+    
     /// Shopping lists with products available at this store, organized by category
     /// Structure: [(list, [(category, [products])])]
     private var listsWithStoreProducts: [(list: ShoppingList, categorizedProducts: [(category: Category, products: [Product])])] {
@@ -89,9 +123,13 @@ struct StoreDetailView: View {
     
     var body: some View {
         List {
-            // MARK: Store Header Card
+            // MARK: Progress Header Card
             Section {
-                StoreHeaderCard(store: store)
+                ProgressHeaderCard(
+                    totalItems: allStoreProducts.count,
+                    completedItems: completedCount,
+                    progressPercentage: progressPercentage
+                )
             }
             .listRowInsets(EdgeInsets())
             .listRowSeparator(.hidden)
@@ -151,79 +189,6 @@ struct StoreDetailView: View {
     /// Clears all checked items from the specified list
     private func clearCheckedItems(for list: ShoppingList) {
         ListHelpers.clearCheckedItems(listId: list.id, in: listViewModel)
-    }
-}
-
-// MARK: - Store Header Card
-
-/// Header card showing store icon, name, and type badge
-/// Uses color coding based on store type for visual distinction
-private struct StoreHeaderCard: View {
-    let store: Store
-    
-    var body: some View {
-        VStack(spacing: AppTheme.Spacing.md) {
-            // MARK: Store Icon
-            // Large circular icon with gradient background
-            ZStack {
-                Circle()
-                    .fill(storeColor.gradient)
-                    .frame(width: 80, height: 80)
-                
-                Image(systemName: storeIcon)
-                    .font(.system(size: 35, weight: .medium))
-                    .foregroundStyle(.white)
-            }
-            
-            // MARK: Store Info
-            VStack(spacing: AppTheme.Spacing.sm) {
-                // Store name
-                Text(store.name)
-                    .font(.title2)
-                    .fontWeight(.bold)
-                
-                // Store type badge
-                Text(store.type.rawValue)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundStyle(storeColor)
-                    .padding(.horizontal, AppTheme.Spacing.md)
-                    .padding(.vertical, AppTheme.Spacing.xs)
-                    .background(storeColor.opacity(0.1))
-                    .clipShape(Capsule())
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, AppTheme.Spacing.xl)
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.CornerRadius.lg))
-        .shadow(
-            color: AppTheme.Shadow.md.color,
-            radius: AppTheme.Shadow.md.radius,
-            x: AppTheme.Shadow.md.x,
-            y: AppTheme.Shadow.md.y
-        )
-        .padding(.horizontal, AppTheme.Spacing.md)
-    }
-    
-    /// Returns the appropriate SF Symbol icon for each store type
-    private var storeIcon: String {
-        switch store.type {
-        case .grocery: return "cart.fill"
-        case .pharmacy: return "cross.case.fill"
-        case .hardware: return "hammer.fill"
-        case .hypermarket: return "storefront.fill"
-        }
-    }
-    
-    /// Returns the color associated with each store type
-    private var storeColor: Color {
-        switch store.type {
-        case .grocery: return .green
-        case .pharmacy: return .red
-        case .hardware: return .orange
-        case .hypermarket: return .blue
-        }
     }
 }
 

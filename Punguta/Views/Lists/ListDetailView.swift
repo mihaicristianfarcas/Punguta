@@ -69,17 +69,25 @@ struct ListDetailView: View {
         return Double(completedCount) / Double(products.count)
     }
     
+    /// Human-readable relative updated string (e.g., "Updated 5 minutes ago")
+    private var relativeUpdatedSubtitle: String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        let relative = formatter.localizedString(for: list.updatedAt, relativeTo: Date())
+        return "Updated \(relative)"
+    }
+    
     // MARK: Body
     
     var body: some View {
         List {
             // MARK: Header Card Section
             Section {
-                ListHeaderCard(
-                    list: list,
-                    products: products,
-                    completedCount: completedCount,
-                    progressPercentage: progressPercentage
+                ProgressHeaderCard(
+                    totalItems: products.count,
+                    completedItems: completedCount,
+                    progressPercentage: progressPercentage,
+                    subtitle: relativeUpdatedSubtitle
                 )
             }
             .listRowInsets(EdgeInsets())
@@ -353,92 +361,6 @@ private struct ProductPickerView: View {
 }
 
 // MARK: - Supporting Views
-
-// MARK: List Header Card
-
-/// Minimal header card displaying list progress
-private struct ListHeaderCard: View {
-    let list: ShoppingList
-    let products: [Product]
-    let completedCount: Int
-    let progressPercentage: Double
-    
-    var body: some View {
-        VStack(spacing: AppTheme.Spacing.lg) {
-            // Statistics
-            HStack(spacing: AppTheme.Spacing.xl) {
-                VStack(spacing: AppTheme.Spacing.xs) {
-                    Text("\(products.count)")
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.primary)
-                    
-                    Text(products.count == 1 ? "Item" : "Items")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                
-                Divider()
-                    .frame(height: 40)
-                
-                VStack(spacing: AppTheme.Spacing.xs) {
-                    Text("\(completedCount)")
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.green)
-                    
-                    Text("Completed")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-            }
-            
-            // Progress Bar
-            if !products.isEmpty {
-                VStack(spacing: AppTheme.Spacing.sm) {
-                    HStack {
-                        Text("Progress")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundStyle(.secondary)
-                        
-                        Spacer()
-                        
-                        Text("\(Int(progressPercentage * 100))%")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.primary)
-                    }
-                    
-                    GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.sm)
-                                .fill(Color.gray.opacity(0.2))
-                                .frame(height: 8)
-                            
-                            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.sm)
-                                .fill(Color.green)
-                                .frame(width: geometry.size.width * progressPercentage, height: 8)
-                                .animation(.spring(response: 0.3), value: progressPercentage)
-                        }
-                    }
-                    .frame(height: 8)
-                }
-            }
-            
-            Text("Updated \(list.updatedAt, style: .relative) ago")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(AppTheme.Spacing.lg)
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.CornerRadius.md))
-        .padding(.horizontal, AppTheme.Spacing.md)
-    }
-}
 
 // MARK: Empty Products State
 
